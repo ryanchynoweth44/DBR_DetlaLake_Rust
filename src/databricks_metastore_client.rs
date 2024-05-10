@@ -8,9 +8,7 @@ pub struct DatabricksMetastoreClient {
 
 impl DatabricksMetastoreClient {
 
-    pub async fn fetch_catalogs(&self) -> Result<CatalogResponse, Error>  {
-        let url: String = format!("https://{}/api/2.1/unity-catalog/catalogs", &self.workspace_name);
-        
+    async fn fetch(&self, url: String) -> Result<Response, Error> {
         let client: reqwest::Client = reqwest::Client::new();
         let mut headers: HeaderMap = HeaderMap::new();
         headers.insert("content-type", "application/json".parse().unwrap());
@@ -22,9 +20,50 @@ impl DatabricksMetastoreClient {
         .send()
         .await?;
 
+        Ok(response)
+    }
+
+    pub async fn fetch_catalogs(&self) -> Result<CatalogResponse, Error>  {
+        let catalog_url: String = format!("https://{}/api/2.1/unity-catalog/catalogs", &self.workspace_name);
+
+        let response: Response = self.fetch(catalog_url).await?;
+
         let catalogs: CatalogResponse = response.json().await?;
         
         Ok(catalogs)
+    }
+
+    pub async fn fetch_all_schemas(&self) -> Result<SchemaResponse, Error> {
+        // this needs to change so that each batch saves to DB instead of returning a massive object? 
+        let catalogs: Vec<Catalog> = self.fetch_catalogs().await?.catalogs;
+        let mut schema_response: SchemaResponse = SchemaResponse::new(); // Create an empty SchemaResponse object
+
+
+        for catalog in catalogs {
+            let schema_url: String = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={:?}", &self.workspace_name, catalog.name);
+
+            // Fetch schemas for the current catalog
+            let response: Response = self.fetch(schema_url).await?;
+            let schemas: SchemaResponse = response.json().await?;
+
+            // Add schemas to the vector
+            // schema_response.extend_schemas(schemas.schemas);           
+            if let Some(schemas) = schemas.schemas {
+                schema_response.extend_schemas(schemas);
+            }
+        }
+
+        Ok(schema_response)
+    }
+
+    pub async fn fetch_schemas(&self, catalog_name: String) -> Result<SchemaResponse, Error>  {
+        let schema_url = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={}", &self.workspace_name, catalog_name);
+
+        // Fetch schemas for the current catalog
+        let response: Response = self.fetch(schema_url).await?;
+        let schemas: SchemaResponse = response.json().await?;
+        
+        Ok(schemas)
     }
 
 }
@@ -61,4 +100,53 @@ pub struct Catalog {
     // effective_predictive_optimization_flag
     // options
     // provisioning_info
+}
+
+
+
+#[derive(Debug, Deserialize)]
+pub struct SchemaResponse {
+    pub schemas: Option<Vec<Schema>>,
+  }
+impl SchemaResponse {
+// Default constructor method
+    fn new() -> Self {
+        Self {
+            schemas: None,
+        }
+    }
+
+    // Method to extend the 'schemas' field
+    fn extend_schemas(&mut self, new_schemas: Vec<Schema>) {
+        // Check if 'schemas' is Some
+        if let Some(existing_schemas) = &mut self.schemas {
+            // Extend the existing schemas with new schemas
+            existing_schemas.extend(new_schemas);
+        } else {
+            // If 'schemas' is None, set it to Some containing the new schemas
+            self.schemas = Some(new_schemas);
+        }
+    }
+}
+
+
+#[derive(Debug, Deserialize)]
+pub struct Schema {
+    pub name: Option<String>,
+    pub catalog_name: Option<String>,
+    pub owner: Option<String>,
+    pub comment: Option<String>,
+    pub storage_root: Option<String>,
+    pub enable_predictive_optimization: Option<String>, 
+    pub metastore_id:Option<String>,
+    pub full_name:Option<String>,
+    pub storage_location:Option<String>,
+    pub created_at: Option<u64>,
+    pub created_by:Option<String>,
+    pub updated_at: Option<u64>,
+    pub updated_by:Option<String>,
+    pub catalog_type:Option<String>,
+    pub browse_only:Option<bool>,
+    pub schema_id:Option<String>,
+
 }

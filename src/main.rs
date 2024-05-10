@@ -15,29 +15,17 @@ async fn main() -> Result<(), Error> {
 
     let db_metastore_client: DatabricksMetastoreClient = DatabricksMetastoreClient{db_token:db_token, workspace_name:workspace_name};
     let catalogs: databricks_metastore_client::CatalogResponse = db_metastore_client.fetch_catalogs().await?;
-
-    for catalog in catalogs.catalogs {
-        println!("Owner: {:?}, Comment: {:?}, Storage Root: {:?}, Provider Name: {:?}, Share Name: {:?}, Enable Predictive Optimization: {:?}, Metastore ID: {:?}, Created At: {:?}, Created By: {:?}, Updated At: {:?}, Updated By: {:?}, Catalog Type: {:?}, Storage Location: {:?}, Isolation Mode: {:?}, Connection Name: {:?}, Full Name: {:?}, Securable Kind: {:?}, Securable Type: {:?}, Browse Only: {:?}", 
-            catalog.owner, 
-            catalog.comment, 
-            catalog.storage_root, 
-            catalog.provider_name, 
-            catalog.share_name, 
-            catalog.enable_predictive_optimization, 
-            catalog.metastore_id, 
-            catalog.created_at, 
-            catalog.created_by, 
-            catalog.updated_at, 
-            catalog.updated_by, 
-            catalog.catalog_type, 
-            catalog.storage_location, 
-            catalog.isolation_mode, 
-            catalog.connection_name, 
-            catalog.full_name, 
-            catalog.securable_kind, 
-            catalog.securable_type, 
-            catalog.browse_only
-        );
+    let schemas: databricks_metastore_client::SchemaResponse = db_metastore_client.fetch_schemas(String::from("main")).await?;
+    let all_schemas: databricks_metastore_client::SchemaResponse = db_metastore_client.fetch_all_schemas().await?;
+    
+    if let Some(schemas) = all_schemas.schemas { // checks to see if something is not none
+        for obj in schemas {
+            println!("Name: {:?}, Owner: {:?}, Comment: {:?}", 
+                obj.name,
+                obj.owner, 
+                obj.comment, 
+            );
+        }
     }
     
 
