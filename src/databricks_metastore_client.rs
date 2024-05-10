@@ -23,6 +23,7 @@ impl DatabricksMetastoreClient {
         Ok(response)
     }
 
+    // https://docs.databricks.com/api/workspace/catalogs/list
     pub async fn fetch_catalogs(&self) -> Result<CatalogResponse, Error>  {
         let catalog_url: String = format!("https://{}/api/2.1/unity-catalog/catalogs", &self.workspace_name);
 
@@ -56,14 +57,34 @@ impl DatabricksMetastoreClient {
         Ok(schema_response)
     }
 
-    pub async fn fetch_schemas(&self, catalog_name: String) -> Result<SchemaResponse, Error>  {
-        let schema_url = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={}", &self.workspace_name, catalog_name);
-
+    // https://docs.databricks.com/api/workspace/schemas/list
+    pub async fn fetch_schemas(&self, catalog_name: String, max_results: Option<usize>) -> Result<SchemaResponse, Error>  {
+        let mut schema_url = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={}", &self.workspace_name, catalog_name);
+        
+        if let Some(max) = max_results {
+            schema_url.push_str(&format!("&max_results={}", max));
+        }
+        
         // Fetch schemas for the current catalog
         let response: Response = self.fetch(schema_url).await?;
         let schemas: SchemaResponse = response.json().await?;
         
         Ok(schemas)
+    }
+
+    // https://docs.databricks.com/api/workspace/tables/list
+    pub async fn fetch_tables(&self, catalog_name: String, schema_name: String, max_results: Option<usize>) -> Result<TableResponse, Error>  {
+        let mut table_url = format!("https://{}/api/2.1/unity-catalog/tables?catalog_name={}&schema_name={}", &self.workspace_name, catalog_name, schema_name);
+
+        if let Some(max) = max_results {
+            table_url.push_str(&format!("&max_results={}", max));
+        }
+
+        // Fetch schemas for the current catalog
+        let response: Response = self.fetch(table_url.clone()).await?;
+        let tables: TableResponse = response.json().await?;
+        
+        Ok(tables)
     }
 
 }
@@ -150,3 +171,47 @@ pub struct Schema {
     pub schema_id:Option<String>,
 
 }
+
+
+#[derive(Debug, Deserialize)]
+pub struct TableResponse {
+    pub tables: Vec<Table>,
+  }
+
+
+#[derive(Debug, Deserialize)]
+pub struct Table {
+    pub name: Option<String>,
+    pub catalog_name: Option<String>,
+    pub schema_name: Option<String>,
+    pub table_type: Option<String>,
+    pub data_source_format: Option<String>,
+    pub storage_location: Option<String>, // full path to table
+    pub view_definition: Option<String>,
+    pub sql_path: Option<String>,
+    pub owner: Option<String>,
+    pub comment: Option<String>,
+    pub storage_credential_name: Option<String>,
+    pub enable_predictive_optimization: Option<String>,
+    pub metastore_id: Option<String>,
+    pub full_name: Option<String>,
+    pub data_access_configuration_id: Option<String>,
+    pub created_at: Option<u64>,
+    pub created_by: Option<String>,
+    pub updated_at: Option<u64>,
+    pub updated_by: Option<String>,
+    pub deleted_at: Option<u64>,
+    pub table_id: Option<String>,
+    pub access_point: Option<String>,
+    pub pipeline_id: Option<String>,
+    pub browse_only: Option<bool>,
+    // excluded fields due to nesting
+    // columns
+    // dependencies 
+    // properties
+    // table_constraints
+    // row_filter
+    // delta_runtime_properties_kvpairs
+    // effective_predictive_optimization_flag
+}
+    
