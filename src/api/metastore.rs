@@ -1,18 +1,24 @@
 use reqwest::{header::HeaderMap, Response, Error};
 use serde::Deserialize;
+use super::api_client::APIClient;
 
-pub struct DatabricksMetastoreClient {
-    pub db_token: String,
-    pub workspace_name: String,
+
+mod metastore_client {
+    pub struct MetastoreClient;
 }
 
-impl DatabricksMetastoreClient {
+pub struct MetastoreClient {
+    pub api_client: APIClient,
+
+}
+
+impl MetastoreClient {
 
     async fn fetch(&self, url: String) -> Result<Response, Error> {
         let client: reqwest::Client = reqwest::Client::new();
         let mut headers: HeaderMap = HeaderMap::new();
         headers.insert("content-type", "application/json".parse().unwrap());
-        headers.insert("Authorization", format!("Bearer {}", &self.db_token).parse().unwrap());
+        headers.insert("Authorization", format!("Bearer {}", &self.api_client.db_token).parse().unwrap());
         
 
         let response: Response = client.get(&url)
@@ -25,7 +31,7 @@ impl DatabricksMetastoreClient {
 
     // https://docs.databricks.com/api/workspace/catalogs/list
     pub async fn fetch_catalogs(&self) -> Result<CatalogResponse, Error>  {
-        let catalog_url: String = format!("https://{}/api/2.1/unity-catalog/catalogs", &self.workspace_name);
+        let catalog_url: String = format!("https://{}/api/2.1/unity-catalog/catalogs", &self.api_client.workspace_name);
 
         let response: Response = self.fetch(catalog_url).await?;
 
@@ -41,7 +47,7 @@ impl DatabricksMetastoreClient {
 
 
         for catalog in catalogs {
-            let schema_url: String = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={:?}", &self.workspace_name, catalog.name);
+            let schema_url: String = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={:?}", &self.api_client.workspace_name, catalog.name);
 
             // Fetch schemas for the current catalog
             let response: Response = self.fetch(schema_url).await?;
@@ -59,7 +65,7 @@ impl DatabricksMetastoreClient {
 
     // https://docs.databricks.com/api/workspace/schemas/list
     pub async fn fetch_schemas(&self, catalog_name: String, max_results: Option<usize>) -> Result<SchemaResponse, Error>  {
-        let mut schema_url = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={}", &self.workspace_name, catalog_name);
+        let mut schema_url = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={}", &self.api_client.workspace_name, catalog_name);
         
         if let Some(max) = max_results {
             schema_url.push_str(&format!("&max_results={}", max));
@@ -74,7 +80,7 @@ impl DatabricksMetastoreClient {
 
     // https://docs.databricks.com/api/workspace/tables/list
     pub async fn fetch_tables(&self, catalog_name: String, schema_name: String, max_results: Option<usize>) -> Result<TableResponse, Error>  {
-        let mut table_url = format!("https://{}/api/2.1/unity-catalog/tables?catalog_name={}&schema_name={}", &self.workspace_name, catalog_name, schema_name);
+        let mut table_url = format!("https://{}/api/2.1/unity-catalog/tables?catalog_name={}&schema_name={}", &self.api_client.workspace_name, catalog_name, schema_name);
 
         if let Some(max) = max_results {
             table_url.push_str(&format!("&max_results={}", max));
@@ -93,6 +99,7 @@ impl DatabricksMetastoreClient {
 pub struct CatalogResponse {
     pub catalogs: Vec<Catalog>,
   }
+
 
 #[derive(Debug, Deserialize)]
 pub struct Catalog {
