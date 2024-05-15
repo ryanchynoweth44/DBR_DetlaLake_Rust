@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS catalogs (
+                name TEXT PRIMARY KEY,
+                owner TEXT ,
+                comment TEXT,
+                storage_root TEXT,
+                provider_name TEXT,
+                share_name TEXT,
+                enable_predictive_optimization TEXT,
+                metastore_id TEXT ,
+                created_at INTEGER ,
+                created_by TEXT ,
+                updated_at INTEGER,
+                updated_by TEXT,
+                catalog_type TEXT,
+                storage_location TEXT,
+                isolation_mode TEXT,
+                connection_name TEXT,
+                full_name TEXT,
+                securable_kind TEXT,
+                securable_type TEXT,
+                browse_only BOOLEAN
+            )
