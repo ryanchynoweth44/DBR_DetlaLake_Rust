@@ -1,28 +1,59 @@
 // https://github.com/launchbadge/sqlx/tree/main/examples/sqlite/todos
 
+use sqlx::migrate::MigrateError;
 // use super::metastore::CatalogResponse;
 use sqlx::{migrate::MigrateDatabase, Error, Sqlite};
 use sqlx::sqlite::{SqliteQueryResult, SqlitePool};
 
 pub struct SqlClient {
     pub pool: sqlx::Pool<Sqlite>,
+    pub migrations_path: String,
+
 }
 
 impl SqlClient {
-    pub async fn new(database_path: &str) -> Result<Self, Error> {
+    pub async fn new(database_path: &str, migrations_path: String) -> Result<Self, Error> {
         // Create SQLite connection options
         if !Sqlite::database_exists(database_path).await? {
-            Sqlite::create_database(database_path).await?;
+            // Sqlite::create_database(database_path).await?;
+            match Sqlite::create_database(database_path).await {
+                Ok(_) => println!("Create db success"),
+                Err(error) => panic!("error: {}", error),
+            }
         }
         let pool: sqlx::Pool<Sqlite> = SqlitePool::connect(database_path).await?;
 
-        Ok(Self { pool })
+        Ok(Self { pool, migrations_path})
     }
 
     pub async fn execute_sql(&mut self, query: &str) -> Result<(SqliteQueryResult), Error> {
+        println!("Executing SQL: {}", query);
         let result: SqliteQueryResult = sqlx::query(query).execute(&self.pool).await?;
         println!("--------------- {:?}", result);
         Ok((result))
+    
+    }
+
+    pub async fn run_migrations(&self) -> Result<(), MigrateError> {
+        println!("-------------- Running Migrations | Path: {}", &self.migrations_path);
+        let migrations = std::path::Path::new(&self.migrations_path);
+
+        let migration_results = sqlx::migrate::Migrator::new(migrations)
+            .await
+            .unwrap()
+            .run(&self.pool)
+            .await;
+
+        match migration_results {
+            Ok(_) => println!("Migration success"),
+            Err(error) => {
+                panic!("error: {}", error);
+            }
+        }
+    
+        println!("migration: {:?}", migration_results);
+
+        migration_results
     }
 
 

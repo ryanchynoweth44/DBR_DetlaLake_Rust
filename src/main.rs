@@ -1,11 +1,14 @@
 use dotenv::dotenv;
+use sqlx::migrate::MigrateError;
 use std::env;
 use reqwest::Error;
+pub mod sql {
+    pub mod sql_client;
+}
 pub mod api{
     pub mod metastore;
     pub mod permissions;
     pub mod api_client;
-    pub mod sql_client;
 }
 
 
@@ -15,6 +18,7 @@ async fn main() -> Result<(), Error> {
     let db_token: String = env::var("DB_TOKEN").expect("DB_TOKEN not set");
     let workspace_name: String = env::var("WORKSPACE_NAME").expect("WORKSPACE_NAME not set");
     let database_url: String = env::var("DATABASE_URL").expect("DATABASE_URL not set");
+    let migrations_path: String = env::var("MIGRATIONS_PATH").expect("MIGRATIONS_PATH not set");
 
     let api_client: api::api_client::APIClient = api::api_client::APIClient {
         db_token: db_token,
@@ -24,8 +28,8 @@ async fn main() -> Result<(), Error> {
     let metastore_client: api::metastore::MetastoreClient = api::metastore::MetastoreClient{api_client};
 
     // Testing SQL integration
-    let mut sql_client: api::sql_client::SqlClient = api::sql_client::SqlClient::new(&database_url).await.unwrap();
-    setup_database(sql_client);
+    let mut sql_client: sql::sql_client::SqlClient = sql::sql_client::SqlClient::new(&database_url, migrations_path).await.unwrap();
+    let db_setup = setup_database(sql_client).await;
     
     // sql_client.execute_upsert_sql(String::from("catalogs"), String::from("name"));
     
@@ -35,17 +39,24 @@ async fn main() -> Result<(), Error> {
 }
 
 
-async fn setup_database(mut sql_client: api::sql_client::SqlClient) {
+async fn setup_database(sql_client: sql::sql_client::SqlClient) -> () {
 
+    let migrate_results = sql_client.run_migrations().await.unwrap();
+
+    // we will store the required data locally from the api. 
+    // the desc extended command will get and display all available data. 
+
+    // DELETE THIS COMMANDS IN FAVOR OF MIGRAITONS
     // sql_client.create_catalogs_table().await.unwrap();
-    let catalog_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\catalogs.sql").await.unwrap();
-    let table_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\tables.sql").await.unwrap();
-    let schema_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\schemas.sql").await.unwrap();
+    // let catalog_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\catalogs.sql").await.unwrap();
+    // let table_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\tables.sql").await.unwrap();
+    // let schema_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\schemas.sql").await.unwrap();
 
-    sql_client.execute_sql(&catalog_sql).await.unwrap();
-    sql_client.execute_sql(&schema_sql).await.unwrap();
-    sql_client.execute_sql(&table_sql).await.unwrap();
+    // sql_client.execute_sql(&catalog_sql).await.unwrap();
+    // sql_client.execute_sql(&schema_sql).await.unwrap();
+    // sql_client.execute_sql(&table_sql).await.unwrap();
     
+    migrate_results
 
 }
 
