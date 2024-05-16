@@ -1,67 +1,67 @@
-use reqwest::{Response, Error};
-use super::api_client::APIClient;
+// use reqwest::{Response, Error};
+// use super::api_client::APIClient;
 
 
-pub struct Permissions {
-    pub api_client: APIClient,
-}
+// pub struct Permissions {
+//     pub api_client: APIClient,
+// }
 
-impl Permissions {
+// impl Permissions {
 
-    async fn authenticate_user(&self, user_name: String, user_token: String) -> Result<Response, Error> {
-        let auth_url: String = format!("https://{}/api/2.0/preview/scim/v2/Me", &self.api_client.workspace_name);
+//     async fn authenticate_user(&self, user_name: String, user_token: String) -> Result<Response, Error> {
+//         let auth_url: String = format!("https://{}/api/2.0/preview/scim/v2/Me", &self.api_client.workspace_name);
 
-        let response: Response = self.api_client.fetch(auth_url).await?;
+//         let response: Response = self.api_client.fetch(auth_url).await?;
 
-        // let catalogs: CatalogResponse = response.json().await?;
+//         // let catalogs: CatalogResponse = response.json().await?;
         
-        // UNFINISHED 
-        // ASSERT THAT USER NAME IS VALID FOR THE GIVEN TOKEN
-        // THIS IS USED TO VERIFY UC PERMISSIONS FOR READ/WRITE
+//         // UNFINISHED 
+//         // ASSERT THAT USER NAME IS VALID FOR THE GIVEN TOKEN
+//         // THIS IS USED TO VERIFY UC PERMISSIONS FOR READ/WRITE
 
         
-        Ok(response)
-    }
+//         Ok(response)
+//     }
 
-    async fn fetch_permissions(&self, securable_type: String, full_name: String) -> Result<Response, Error> {
-        let auth_url: String = format!("https://{}/api/2.1/unity-catalog/permissions/{}/{}", &self.api_client.workspace_name, securable_type, full_name);
+//     async fn fetch_permissions(&self, securable_type: String, full_name: String) -> Result<Response, Error> {
+//         let auth_url: String = format!("https://{}/api/2.1/unity-catalog/permissions/{}/{}", &self.api_client.workspace_name, securable_type, full_name);
 
-        let response: Response = self.api_client.fetch(auth_url).await?;
+//         let response: Response = self.api_client.fetch(auth_url).await?;
 
-        // let catalogs: PrivilegeResponse = response.json().await?;
+//         // let catalogs: PrivilegeResponse = response.json().await?;
         
-        // UNFINISHED 
-        // {
-        //   "privilege_assignments": [
-        //     {
-        //       "principal": "string",
-        //       "privileges": [
-        //         "SELECT"
-        //       ]
-        //     }
-        //   ]
-        // }
+//         // UNFINISHED 
+//         // {
+//         //   "privilege_assignments": [
+//         //     {
+//         //       "principal": "string",
+//         //       "privileges": [
+//         //         "SELECT"
+//         //       ]
+//         //     }
+//         //   ]
+//         // }
         
         
-        Ok(response)
-    }
+//         Ok(response)
+//     }
 
-    // PLACEHOLDER
-    async fn can_read(&self, privilege_response: PrivilegeResponse) -> bool {
-        let mut readable = false; // deny by default
+//     // PLACEHOLDER
+//     async fn can_read(&self, privilege_response: PrivilegeResponse) -> bool {
+//         let mut readable = false; // deny by default
 
-        readable
-    }
+//         readable
+//     }
 
-    // PLACEHOLDER
-    async fn can_write(&self, privilege_response: PrivilegeResponse) -> bool {
-        let mut writable = false; // deny by default
+//     // PLACEHOLDER
+//     async fn can_write(&self, privilege_response: PrivilegeResponse) -> bool {
+//         let mut writable = false; // deny by default
 
-        writable
-    }
-}
+//         writable
+//     }
+// }
 
-// PLACEHOLDER
-struct PrivilegeResponse {
-    privilege_assignments: String,
-}
+// // PLACEHOLDER
+// struct PrivilegeResponse {
+//     privilege_assignments: String,
+// }

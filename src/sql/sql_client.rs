@@ -1,9 +1,10 @@
 // https://github.com/launchbadge/sqlx/tree/main/examples/sqlite/todos
-
+use log;
 use sqlx::migrate::MigrateError;
-// use super::metastore::CatalogResponse;
+use crate::api::metastore::CatalogResponse;
 use sqlx::{migrate::MigrateDatabase, Error, Sqlite};
 use sqlx::sqlite::{SqliteQueryResult, SqlitePool};
+
 
 pub struct SqlClient {
     pub pool: sqlx::Pool<Sqlite>,
@@ -17,7 +18,7 @@ impl SqlClient {
         if !Sqlite::database_exists(database_path).await? {
             // Sqlite::create_database(database_path).await?;
             match Sqlite::create_database(database_path).await {
-                Ok(_) => println!("Create db success"),
+                Ok(_) => log::info!("Create db success"),
                 Err(error) => panic!("error: {}", error),
             }
         }
@@ -26,16 +27,16 @@ impl SqlClient {
         Ok(Self { pool, migrations_path})
     }
 
-    pub async fn execute_sql(&mut self, query: &str) -> Result<(SqliteQueryResult), Error> {
-        println!("Executing SQL: {}", query);
+    pub async fn execute_sql(&mut self, query: &str) -> Result<SqliteQueryResult, Error> {
+        log::info!("Executing SQL: {}", query);
         let result: SqliteQueryResult = sqlx::query(query).execute(&self.pool).await?;
-        println!("--------------- {:?}", result);
-        Ok((result))
+        log::info!("--------------- {:?}", result);
+        Ok(result)
     
     }
 
     pub async fn run_migrations(&self) -> Result<(), MigrateError> {
-        println!("-------------- Running Migrations | Path: {}", &self.migrations_path);
+        log::info!("-------------- Running Migrations | Path: {}", &self.migrations_path);
         let migrations = std::path::Path::new(&self.migrations_path);
 
         let migration_results = sqlx::migrate::Migrator::new(migrations)
@@ -45,90 +46,49 @@ impl SqlClient {
             .await;
 
         match migration_results {
-            Ok(_) => println!("Migration success"),
+            Ok(_) => log::info!("Migration success"),
             Err(error) => {
                 panic!("error: {}", error);
             }
         }
     
-        println!("migration: {:?}", migration_results);
+        log::info!("migration: {:?}", migration_results);
 
         migration_results
     }
 
-
-
-    pub async fn load_sql_file(&self, file_path: &str) -> Result<String, std::io::Error> {
-        let sql_string = std::fs::read_to_string(file_path)? ;
-        // println!("{:?}", sql_string);
-        Ok(sql_string)
-    }
-
-    pub async fn execute_sql_files_from_directory(&mut self, directory_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // Read all files from the directory
-        let paths = std::fs::read_dir(directory_path)?;
-
-        for path in paths {
-            let entry = path?;
-            let full_path = entry.path();
-            let full_path_str = full_path.to_string_lossy();
-            let file_contents = self.load_sql_file(&full_path_str).await?;
-            self.execute_sql(&file_contents);
-        }
-
+    
+    pub async fn write_catalog(&self, catalog_response: CatalogResponse) -> Result<(), sqlx::Error> {
+        for catalog in catalog_response.catalogs {
+            let result: SqliteQueryResult = sqlx::query(
+                "INSERT OR REPLACE INTO catalogs (name, owner, comment, storage_root, provider_name, share_name, enable_predictive_optimization, metastore_id, created_at, created_by, updated_at, updated_by, catalog_type, storage_location, isolation_mode, connection_name, full_name, securable_kind, securable_type, browse_only)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)")
+                .bind(catalog.name)
+                .bind(catalog.owner)
+                .bind(catalog.comment)
+                .bind(catalog.storage_root)
+                .bind(catalog.provider_name)
+                .bind(catalog.share_name)
+                .bind(catalog.enable_predictive_optimization)
+                .bind(catalog.metastore_id)
+                .bind(catalog.created_at)
+                .bind(catalog.created_by)
+                .bind(catalog.updated_at)
+                .bind(catalog.updated_by)
+                .bind(catalog.catalog_type)
+                .bind(catalog.storage_location)
+                .bind(catalog.isolation_mode)
+                .bind(catalog.connection_name)
+                .bind(catalog.full_name)
+                .bind(catalog.securable_kind)
+                .bind(catalog.securable_type)
+                .bind(catalog.browse_only)
+                .execute(&self.pool).await?;
+        }    
 
         Ok(())
     }
     
-    // this will not work
-    pub fn compose_upsert_sql(&self, table_name: &str, merge_column: &str) -> String {
-        
-        format!(
-            "INSERT INTO {table} *
-            ON CONFLICT({id_column}) DO UPDATE SET * ",
-            table = table_name,
-            id_column = merge_column,
-        )
-    }
 
-    pub async fn execute_upsert_sql(&mut self, table_name: &str, id_column: &str) -> Result<(), Box<dyn std::error::Error>> {
-        // Compose the upsert SQL query
-        let upsert_sql: String = self.compose_upsert_sql(table_name, id_column);
-
-        // Execute the SQL query
-        self.execute_sql(&upsert_sql).await?;
-        
-
-        Ok(())
-    }
-
-    pub async fn create_catalogs_table(&mut self) -> Result<(), Error> {
-        self.execute_sql(
-            "CREATE TABLE IF NOT EXISTS catalogs (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                owner TEXT NOT NULL,
-                comment TEXT,
-                storage_root TEXT,
-                provider_name TEXT,
-                share_name TEXT,
-                enable_predictive_optimization TEXT,
-                metastore_id TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                created_by TEXT NOT NULL,
-                updated_at INTEGER,
-                updated_by TEXT,
-                catalog_type TEXT,
-                storage_location TEXT,
-                isolation_mode TEXT,
-                connection_name TEXT,
-                full_name TEXT,
-                securable_kind TEXT,
-                securable_type TEXT,
-                browse_only BOOLEAN
-            )"
-        ).await?;
-        Ok(())
-    }
 }
 

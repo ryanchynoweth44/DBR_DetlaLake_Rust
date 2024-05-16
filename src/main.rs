@@ -1,5 +1,5 @@
 use dotenv::dotenv;
-use sqlx::migrate::MigrateError;
+// use log; //https://github.com/rust-lang/log/issues/376
 use std::env;
 use reqwest::Error;
 pub mod sql {
@@ -28,10 +28,9 @@ async fn main() -> Result<(), Error> {
     let metastore_client: api::metastore::MetastoreClient = api::metastore::MetastoreClient{api_client};
 
     // Testing SQL integration
-    let mut sql_client: sql::sql_client::SqlClient = sql::sql_client::SqlClient::new(&database_url, migrations_path).await.unwrap();
-    let db_setup = setup_database(sql_client).await;
-    
-    // sql_client.execute_upsert_sql(String::from("catalogs"), String::from("name"));
+    let sql_client: sql::sql_client::SqlClient = sql::sql_client::SqlClient::new(&database_url, migrations_path).await.unwrap();
+    let db_setup = setup_database(&sql_client).await;
+    write_catalogs(&sql_client, metastore_client).await;
     
 
     Ok(())
@@ -39,77 +38,17 @@ async fn main() -> Result<(), Error> {
 }
 
 
-async fn setup_database(sql_client: sql::sql_client::SqlClient) -> () {
+async fn setup_database(sql_client: &sql::sql_client::SqlClient) -> () {
 
-    let migrate_results = sql_client.run_migrations().await.unwrap();
-
-    // we will store the required data locally from the api. 
-    // the desc extended command will get and display all available data. 
-
-    // DELETE THIS COMMANDS IN FAVOR OF MIGRAITONS
-    // sql_client.create_catalogs_table().await.unwrap();
-    // let catalog_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\catalogs.sql").await.unwrap();
-    // let table_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\tables.sql").await.unwrap();
-    // let schema_sql: String = sql_client.load_sql_file("C:\\gitmine\\DBR_DetlaLake_Rust\\src\\ddl\\schemas.sql").await.unwrap();
-
-    // sql_client.execute_sql(&catalog_sql).await.unwrap();
-    // sql_client.execute_sql(&schema_sql).await.unwrap();
-    // sql_client.execute_sql(&table_sql).await.unwrap();
-    
+    let migrate_results = sql_client.run_migrations().await.unwrap();    
     migrate_results
 
 }
 
-async fn print_table(metastore_client: api::metastore::MetastoreClient) -> Result<(), Error> {
-    let table: api::metastore::Table = metastore_client.get_table(String::from("rac_demo_catalog.productcopy_demo.rac_t5_small_fine_tune_product_copy_payload")).await?;
-    println!("Name: {:?}, Owner: {:?}, Comment: {:?}, Location: {:?}, Id: {:?}", 
-        table.name,
-        table.owner, 
-        table.comment, 
-        table.storage_location,
-        table.table_id,
-    );
+async fn write_catalogs(sql_client: &sql::sql_client::SqlClient, metastore_client: api::metastore::MetastoreClient) -> Result<(), sqlx::Error> {
 
-    Ok(())
-}
+    let catalogs: api::metastore::CatalogResponse = metastore_client.fetch_catalogs().await.unwrap();
+    sql_client.write_catalog(catalogs).await.unwrap();
 
-async fn print_tables(metastore_client: api::metastore::MetastoreClient) -> Result<(), Error> {
-    let tables: api::metastore::TableResponse = metastore_client.fetch_tables(String::from("rac_demo_catalog"), String::from("productcopy_demo"), None).await?;
-    for obj in tables.tables {
-        println!("Name: {:?}, Owner: {:?}, Comment: {:?}, Location: {:?}, Id: {:?}", 
-            obj.name,
-            obj.owner, 
-            obj.comment, 
-            obj.storage_location,
-            obj.table_id,
-        );
-    }
-    Ok(())
-}
-
-async fn print_schemas(metastore_client: api::metastore::MetastoreClient) -> Result<(), Error> {
-    let schemas: api::metastore::SchemaResponse = metastore_client.fetch_schemas(String::from("rac_demo_catalog"), None).await?;
-    if let Some(schemas) = schemas.schemas { // checks to see if something is not none
-        for obj in schemas {
-            println!("Name: {:?}, Owner: {:?}, Comment: {:?}, Schema ID: {:?}", 
-                obj.name,
-                obj.owner, 
-                obj.comment, 
-                obj.schema_id
-            );
-        }
-    }
-    Ok(())
-}
-
-async fn print_catalogs(metastore_client: api::metastore::MetastoreClient) -> Result<(), Error> {
-    let catalogs: api::metastore::CatalogResponse = metastore_client.fetch_catalogs().await?;
-    for obj in catalogs.catalogs {
-        println!("Name: {:?}, Owner: {:?}, Comment: {:?}", 
-            obj.name,
-            obj.owner, 
-            obj.comment, 
-        );
-    }
     Ok(())
 }
