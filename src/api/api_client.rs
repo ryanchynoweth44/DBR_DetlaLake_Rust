@@ -1,5 +1,5 @@
 use reqwest::{header::HeaderMap, Response, Error};
-
+use log;
 
 pub struct APIClient {
     pub db_token: String,
@@ -19,6 +19,13 @@ impl APIClient {
         .headers(headers.clone())
         .send()
         .await?;
+
+        // Check if the response status code is not 200
+        if !response.status().is_success() {
+            // Log an error message
+            log::error!("Request to {} failed with status code: {}", url, response.status());
+        }
+       
 
         Ok(response)
     }

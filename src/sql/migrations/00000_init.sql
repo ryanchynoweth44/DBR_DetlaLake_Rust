@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS catalogs (
 
 
 CREATE TABLE IF NOT EXISTS schemas (
+    schema_id TEXT PRIMARY KEY,
     name TEXT,
     catalog_name TEXT,
     owner TEXT,
@@ -38,14 +39,14 @@ CREATE TABLE IF NOT EXISTS schemas (
     updated_at INTEGER,
     updated_by TEXT,
     catalog_type TEXT,
-    browse_only BOOLEAN,
-    schema_id TEXT--,
+    browse_only BOOLEAN
     -- FOREIGN KEY (catalog_name) REFERENCES Catalog(name)
 );
 
 
 
 CREATE TABLE IF NOT EXISTS tables (
+    table_id TEXT PRIMARY KEY,
     name TEXT,
     catalog_name TEXT,
     schema_name TEXT,
@@ -66,7 +67,6 @@ CREATE TABLE IF NOT EXISTS tables (
     updated_at INTEGER,
     updated_by TEXT,
     deleted_at INTEGER,
-    table_id TEXT,
     access_point TEXT,
     pipeline_id TEXT,
     browse_only BOOLEAN--,

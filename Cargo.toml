@@ -1,5 +1,5 @@
 [package]
-name = "dbrx_rest_api"
+name = "databricks-rust-catalog"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,3 +12,4 @@ reqwest = { version = "0.11", features = ["json"] }
 serde = {version = "1.0.144", features = ["derive"]}
 sqlx = { version = "0.7", features = [ "runtime-tokio-native-tls", "sqlite"] }
 log = { version = "0.4.3" }
+env_logger = { version = "0.11.3" }

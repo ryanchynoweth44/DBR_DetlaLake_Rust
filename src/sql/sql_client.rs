@@ -1,7 +1,7 @@
 // https://github.com/launchbadge/sqlx/tree/main/examples/sqlite/todos
 use log;
 use sqlx::migrate::MigrateError;
-use crate::api::metastore::CatalogResponse;
+use crate::api::metastore::{CatalogResponse, SchemaResponse};
 use sqlx::{migrate::MigrateDatabase, Error, Sqlite};
 use sqlx::sqlite::{SqliteQueryResult, SqlitePool};
 
@@ -27,11 +27,19 @@ impl SqlClient {
         Ok(Self { pool, migrations_path})
     }
 
-    pub async fn execute_sql(&mut self, query: &str) -> Result<SqliteQueryResult, Error> {
+    pub async fn execute_sql(&self, query: &str) -> Result<SqliteQueryResult, Error> {
         log::info!("Executing SQL: {}", query);
-        let result: SqliteQueryResult = sqlx::query(query).execute(&self.pool).await?;
-        log::info!("--------------- {:?}", result);
-        Ok(result)
+        let result = sqlx::query(query).execute(&self.pool).await;
+        match result {
+            Ok(res) => {
+                // log::info!("--------------- {:?}", res);
+                Ok(res)
+            },
+            Err(err) => {
+                log::error!("Error executing SQL query: {}", err);
+                Err(err)
+            }
+        }
     
     }
 
@@ -58,37 +66,74 @@ impl SqlClient {
     }
 
     
-    pub async fn write_catalog(&self, catalog_response: CatalogResponse) -> Result<(), sqlx::Error> {
+    pub async fn write_catalogs(&self, catalog_response: CatalogResponse) -> Result<(), sqlx::Error> {
         for catalog in catalog_response.catalogs {
-            let result: SqliteQueryResult = sqlx::query(
+            let qry: String = format!(
                 "INSERT OR REPLACE INTO catalogs (name, owner, comment, storage_root, provider_name, share_name, enable_predictive_optimization, metastore_id, created_at, created_by, updated_at, updated_by, catalog_type, storage_location, isolation_mode, connection_name, full_name, securable_kind, securable_type, browse_only)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)")
-                .bind(catalog.name)
-                .bind(catalog.owner)
-                .bind(catalog.comment)
-                .bind(catalog.storage_root)
-                .bind(catalog.provider_name)
-                .bind(catalog.share_name)
-                .bind(catalog.enable_predictive_optimization)
-                .bind(catalog.metastore_id)
-                .bind(catalog.created_at)
-                .bind(catalog.created_by)
-                .bind(catalog.updated_at)
-                .bind(catalog.updated_by)
-                .bind(catalog.catalog_type)
-                .bind(catalog.storage_location)
-                .bind(catalog.isolation_mode)
-                .bind(catalog.connection_name)
-                .bind(catalog.full_name)
-                .bind(catalog.securable_kind)
-                .bind(catalog.securable_type)
-                .bind(catalog.browse_only)
-                .execute(&self.pool).await?;
-        }    
+                    VALUES ({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?})"
+                ,catalog.name
+                ,catalog.owner
+                ,catalog.comment.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.storage_root.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.provider_name.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.share_name.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.enable_predictive_optimization.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.metastore_id
+                ,catalog.created_at
+                ,catalog.created_by
+                ,catalog.updated_at.map_or("NULL".to_string(), |v| format!("{:?}", v))
+                ,catalog.updated_by.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.catalog_type
+                ,catalog.storage_location.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.isolation_mode.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.connection_name.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.full_name
+                ,catalog.securable_kind.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.securable_type.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)).trim_matches('"')
+                ,catalog.browse_only.map_or("NULL".to_string(), |b| format!("{:?}", b)),
 
+            );
+                        
+
+            let _result: &SqliteQueryResult = &self.execute_sql(&qry).await?;
+        }
         Ok(())
     }
     
+
+
+
+    pub async fn write_schemas(&self, schema_response: SchemaResponse) -> Result<(), sqlx::Error> {
+        for schema in schema_response.schemas {
+
+            let qry: String = format!(
+                "INSERT OR REPLACE INTO schemas (name, catalog_name, owner, comment, storage_root, enable_predictive_optimization, metastore_id, full_name, storage_location, created_at, created_by, updated_at, updated_by, catalog_type, browse_only, schema_id)
+                 VALUES ({:?}, {:?}, {:?}, {}, {}, {}, {:?}, '{}', {}, {:?}, {:?}, {}, {}, {}, {:?}, {:?})",
+                schema.name,
+                schema.catalog_name,
+                schema.owner,
+                schema.comment.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)),
+                schema.storage_root.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)),
+                schema.enable_predictive_optimization.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)),
+                schema.metastore_id,
+                schema.full_name,
+                schema.storage_location.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)),
+                schema.created_at,
+                schema.created_by,
+                schema.updated_at.map_or("NULL".to_string(), |v| format!("{:?}", v)),
+                schema.updated_by.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)),
+                schema.catalog_type.as_deref().map_or("NULL".to_string(), |s| format!("{:?}", s)),
+                schema.browse_only.map_or("NULL".to_string(), |b| format!("{:?}", b)),
+                schema.schema_id
+            );
+                        
+
+            let _result: &SqliteQueryResult = &self.execute_sql(&qry).await?;
+
+
+        }    
+        Ok(())
+    }
 
 }
 

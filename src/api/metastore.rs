@@ -22,30 +22,6 @@ impl MetastoreClient {
         Ok(catalogs)
     }
 
-    // List all schemas in a Databricks' Unity Catalog Metastore
-    // This is likely not needed as perf is super bad with large results
-    pub async fn fetch_all_schemas(&self) -> Result<SchemaResponse, Error> {
-        // this needs to change so that each batch saves to DB instead of returning a massive object? 
-        let catalogs: Vec<Catalog> = self.fetch_catalogs().await?.catalogs;
-        let mut schema_response: SchemaResponse = SchemaResponse::new(); // Create an empty SchemaResponse object
-
-
-        for catalog in catalogs {
-            let schema_url: String = format!("https://{}/api/2.1/unity-catalog/schemas?catalog_name={:?}", &self.api_client.workspace_name, catalog.name);
-
-            // Fetch schemas for the current catalog
-            let response: Response = self.api_client.fetch(schema_url).await?;
-            let schemas: SchemaResponse = response.json().await?;
-
-            // Add schemas to the vector
-            // schema_response.extend_schemas(schemas.schemas);           
-            if let Some(schemas) = schemas.schemas {
-                schema_response.extend_schemas(schemas);
-            }
-        }
-
-        Ok(schema_response)
-    }
 
     // List schemas fpr a given catalog in a Databricks' Unity Catalog Metastore
     // https://docs.databricks.com/api/workspace/schemas/list
@@ -114,11 +90,11 @@ pub struct Catalog {
     pub created_by: String,
     pub updated_at: Option<i64>, 
     pub updated_by: Option<String>,
-    pub catalog_type: Option<String>,
+    pub catalog_type: String,
     pub storage_location: Option<String>,
     pub isolation_mode: Option<String>,
     pub connection_name: Option<String>,
-    pub full_name: Option<String>,
+    pub full_name: String,
     pub securable_kind: Option<String>,
     pub securable_type: Option<String>,
     pub browse_only: Option<bool>,
@@ -133,28 +109,8 @@ pub struct Catalog {
 
 #[derive(Debug, Deserialize)]
 pub struct SchemaResponse {
-    pub schemas: Option<Vec<Schema>>,
+    pub schemas: Vec<Schema>,
   }
-impl SchemaResponse {
-// Default constructor method
-    fn new() -> Self {
-        Self {
-            schemas: None,
-        }
-    }
-
-    // Method to extend the 'schemas' field
-    fn extend_schemas(&mut self, new_schemas: Vec<Schema>) {
-        // Check if 'schemas' is Some
-        if let Some(existing_schemas) = &mut self.schemas {
-            // Extend the existing schemas with new schemas
-            existing_schemas.extend(new_schemas);
-        } else {
-            // If 'schemas' is None, set it to Some containing the new schemas
-            self.schemas = Some(new_schemas);
-        }
-    }
-}
 
 
 #[derive(Debug, Deserialize)]
@@ -168,9 +124,9 @@ pub struct Schema {
     pub metastore_id:String,
     pub full_name:String,
     pub storage_location:Option<String>,
-    pub created_at: u64,
+    pub created_at: i64,
     pub created_by:String,
-    pub updated_at: Option<u64>,
+    pub updated_at: Option<i64>,
     pub updated_by:Option<String>,
     pub catalog_type:Option<String>,
     pub browse_only:Option<bool>,
