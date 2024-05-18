@@ -1,6 +1,7 @@
 use reqwest::{header::HeaderMap, Response, Error};
 use log;
 
+#[derive(Clone)]
 pub struct APIClient {
     pub db_token: String,
     pub workspace_name: String,
@@ -19,6 +20,7 @@ impl APIClient {
         .headers(headers.clone())
         .send()
         .await?;
+
 
         // Check if the response status code is not 200
         if !response.status().is_success() {
