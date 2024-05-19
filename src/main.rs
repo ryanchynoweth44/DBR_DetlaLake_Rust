@@ -32,13 +32,24 @@ async fn main() -> Result<(), Error> {
     };
 
     // Setup SQL
-    let sql_client: sql::sql_client::SqlClient = sql::sql_client::SqlClient::new(&database_url, migrations_path).await.unwrap();
-    let _migrate_results = sql_client.run_migrations().await.unwrap();
-    let metastore_client: api::metastore::MetastoreClient = api::metastore::MetastoreClient{api_client, sql_client};
+    let sql_client: sql::sql_client::SqlClient = sql::sql_client::SqlClient::new(&database_url).await.unwrap();
+    let _migrate_results = sql_client.run_migrations(&migrations_path).await.unwrap();
+    let metastore_sql_client = sql_client.clone();
+    let metastore_client: api::metastore::MetastoreClient = api::metastore::MetastoreClient { api_client: api_client, sql_client: metastore_sql_client };
+    
+    // Full Catalog Update - Needs to find better way to just send it to a thread to run in backgorund.
+    // let _catalog_update: Result<(), Error> = metastore_client.refresh_catalogs().await;
+    // let _schema_update: Result<(), Error> = metastore_client.refresh_all_schemas().await;
+    // let _table_update: Result<(), Error> = metastore_client.refresh_all_tables().await;
 
-    let _catalog_update: Result<(), Error> = metastore_client.refresh_catalogs().await;
-    let _schema_update: Result<(), Error> = metastore_client.refresh_all_schemas().await;
-    let _table_update = metastore_client.refresh_all_tables().await;
+    // Testing various gets/list/refresh commands
+    // need to get list commands 
+    // Then I can start on the reader functions for delta lake. 
+    // let cats = sql_client.list_catalogs(Some("rac")).await;
+    // let schs = sql_client.list_schemas(Some("rac_demo_catalog"), Some("product")).await;
+    let ts = sql_client.list_tables(Some("rac_demo_catalog"), Some("productcopy_demo"), Some("clean")).await;
+
+
 
     Ok(())
 

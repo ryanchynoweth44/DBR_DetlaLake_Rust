@@ -1,20 +1,19 @@
 // https://github.com/launchbadge/sqlx/tree/main/examples/sqlite/todos
 use log;
 use sqlx::migrate::{MigrateError, MigrateDatabase};
-use crate::api::metastore::{CatalogResponse, SchemaResponse, TableResponse, Catalog};
-use sqlx::{Error, Sqlite};
+use crate::api::metastore::{CatalogResponse, SchemaResponse, TableResponse};
+use sqlx::{Error, Sqlite, FromRow};
 use sqlx::sqlite::{SqliteQueryResult, SqlitePool};
+
 
 
 #[derive(Clone)]
 pub struct SqlClient {
     pub pool: sqlx::Pool<Sqlite>,
-    pub migrations_path: String,
-
 }
 
 impl SqlClient {
-    pub async fn new(database_path: &str, migrations_path: String) -> Result<Self, Error> {
+    pub async fn new(database_path: &str) -> Result<Self, Error> {
         // Create SQLite connection options
         if !Sqlite::database_exists(database_path).await? {
             // Sqlite::create_database(database_path).await?;
@@ -25,7 +24,7 @@ impl SqlClient {
         }
         let pool: sqlx::Pool<Sqlite> = SqlitePool::connect(database_path).await?;
 
-        Ok(Self { pool, migrations_path})
+        Ok(Self { pool })
     }
 
     pub async fn execute_sql(&self, query: &str) -> Result<SqliteQueryResult, Error> {
@@ -44,9 +43,9 @@ impl SqlClient {
     
     }
 
-    pub async fn run_migrations(&self) -> Result<(), MigrateError> {
-        log::info!("-------------- Running Migrations | Path: {}", &self.migrations_path);
-        let migrations = std::path::Path::new(&self.migrations_path);
+    pub async fn run_migrations(&self, migrations_path: &str) -> Result<(), MigrateError> {
+        log::info!("-------------- Running Migrations | Path: {}", migrations_path);
+        let migrations = std::path::Path::new(migrations_path);
 
         let migration_results = sqlx::migrate::Migrator::new(migrations)
             .await
@@ -190,22 +189,123 @@ impl SqlClient {
         Ok(())
     }
 
-    pub async fn search_catalogs(&self, search_term: Option<&str>) -> Result<Vec<Catalog>, sqlx::Error> {
+    pub async fn list_catalogs(&self, search_term: Option<&str>) -> Result<Vec<ListCatalogResultSet>, sqlx::Error> {
         let mut qry: String = String::from("select name from catalogs");
 
         if let Some(term) = search_term {
-            qry.push_str(&format!(" where like %{}%", term));
+            qry.push_str(&format!(" WHERE name LIKE '%{}%'", term));
         }
 
-        let catalogs: Vec<Catalog> = sqlx::query_as::<_, Catalog>(
-            &qry
-        )
-        // .bind(query)
-        .fetch_all(&self.pool)
-        .await?;
 
-        Ok(catalogs)
+        
+        let catalog_results: Vec<ListCatalogResultSet> = sqlx::query_as::<_, ListCatalogResultSet>(&qry)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap();
+
+        for cat in &catalog_results {
+            println!(
+                "Catalog Name: {}", cat.name );
+        }
+
+
+        Ok(catalog_results)
+    }
+
+    pub async fn list_schemas(&self, catalog_name: Option<&str>, search_term: Option<&str>) -> Result<Vec<ListSchemaResultSet>, sqlx::Error> {
+        let mut qry: String = String::from("select name, catalog_name from schemas");
+
+        if catalog_name.is_some() || search_term.is_some() {
+            qry.push_str(" WHERE ");
+        }    
+        
+        if let Some(term) = search_term {
+            qry.push_str(&format!("  name LIKE '%{}%'", term));
+        }
+
+        if let Some(catalog) = catalog_name {
+            if search_term.is_some() {
+                qry.push_str(&format!(" and catalog_name = '{}'", catalog));
+            } else {
+                qry.push_str(&format!("  catalog_name = '{}'", catalog));
+            }
+        }
+
+
+        
+        let schema_results: Vec<ListSchemaResultSet> = sqlx::query_as::<_, ListSchemaResultSet>(&qry)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap();
+
+        for sc in &schema_results {
+            println!(
+                "Catalog Name: {} | Schema Name: {}", sc.catalog_name, sc.name );
+        }
+
+
+        Ok(schema_results)
+    }
+
+    pub async fn list_tables(&self, catalog_name: Option<&str>, schema_name: Option<&str>, search_term: Option<&str>) -> Result<Vec<ListTableResultSet>, sqlx::Error> {
+        let mut qry: String = String::from("select name, catalog_name, schema_name from tables");
+
+        if catalog_name.is_some() || search_term.is_some() || schema_name.is_some() {
+            qry.push_str(" WHERE ");
+        }    
+        
+        if let Some(term) = search_term {
+            qry.push_str(&format!(" name LIKE '%{}%'", term));
+        }
+
+        if let Some(catalog) = catalog_name {
+            if search_term.is_some() {
+                qry.push_str(&format!(" and catalog_name = '{}'", catalog));
+            } else {
+                qry.push_str(&format!("  catalog_name = '{}'", catalog));
+            }
+        }
+
+        if let Some(schema) = schema_name {
+            if search_term.is_some() || catalog_name.is_some() {
+                qry.push_str(&format!(" and schema_name = '{}'", schema));
+            } else {
+                qry.push_str(&format!("  schema_name = '{}'", schema));
+            }
+        }
+
+
+        
+        let table_results: Vec<ListTableResultSet> = sqlx::query_as::<_, ListTableResultSet>(&qry)
+            .fetch_all(&self.pool)
+            .await
+            .unwrap();
+
+        for t in &table_results {
+            println!(
+                "Catalog Name: {} | Schema Name: {} | Table Name: {}", t.catalog_name, t.schema_name, t.name );
+        }
+
+
+        Ok(table_results)
     }
 
 }
 
+#[derive(Clone, FromRow, Debug)]
+pub struct ListCatalogResultSet {
+    name: String,
+}
+
+#[derive(Clone, FromRow, Debug)]
+pub struct ListSchemaResultSet {
+    name: String,
+    catalog_name: String,
+}
+
+#[derive(Clone, FromRow, Debug)]
+pub struct ListTableResultSet {
+    name: String,
+    catalog_name: String,
+    schema_name: String,
+}
