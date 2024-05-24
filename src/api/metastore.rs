@@ -19,7 +19,7 @@ impl MetastoreClient {
             &self.api_client.workspace_name
         );
 
-        let response: Response = self.api_client.fetch(catalog_url).await?;
+        let response: Response = self.api_client.fetch(&catalog_url).await?;
 
         let catalogs: CatalogResponse = match response.json().await {
             Ok(catalogs) => catalogs, // If deserialization succeeds, continue with the deserialized data
@@ -50,7 +50,7 @@ impl MetastoreClient {
         }
 
         // Fetch schemas for the current catalog
-        let response: Response = self.api_client.fetch(schema_url).await?;
+        let response: Response = self.api_client.fetch(&schema_url).await?;
         let schemas: SchemaResponse = match response.json().await {
             Ok(schemas) => schemas, // If deserialization succeeds, continue with the deserialized data
             Err(e) => {
@@ -81,7 +81,7 @@ impl MetastoreClient {
         }
 
         // Fetch tables for the current catalog/schema
-        let response: Response = self.api_client.fetch(table_url.clone()).await?;
+        let response: Response = self.api_client.fetch(&table_url).await?;
         // let tables: TableResponse = response.json().await?;
         let tables: TableResponse = match response.json().await {
             Ok(tables) => tables, // If deserialization succeeds, continue with the deserialized data
@@ -103,7 +103,7 @@ impl MetastoreClient {
             &self.api_client.workspace_name, full_table_name
         );
 
-        let response: Response = self.api_client.fetch(url.clone()).await?;
+        let response: Response = self.api_client.fetch(&url).await?;
         let table: Table = response.json().await?;
 
         // if we get a table from the API we will update it locally
@@ -123,7 +123,7 @@ impl MetastoreClient {
             &self.api_client.workspace_name, full_schema_name
         );
 
-        let response: Response = self.api_client.fetch(url.clone()).await?;
+        let response: Response = self.api_client.fetch(&url).await?;
         let schema: Schema = response.json().await?;
 
         // if we get a schema from the API we will update it locally
@@ -143,7 +143,7 @@ impl MetastoreClient {
             &self.api_client.workspace_name, name
         );
 
-        let response: Response = self.api_client.fetch(url.clone()).await?;
+        let response: Response = self.api_client.fetch(&url).await?;
         let catalog: Catalog = response.json().await?;
 
         // if we get a schema from the API we will update it locally
