@@ -7,3 +7,7 @@ This repository is purposed for running rust workloads against Databricks Datase
 - [Install and Learn Rust](https://www.rust-lang.org/learn)
 - [Rust Book](https://doc.rust-lang.org/book/)
 - VS Code Extension - [rust-analyzer](https://rust-analyzer.github.io/)
+
+
+deltalake = { version = "0.17.3", features = ["azure"]}
+https://github.com/delta-io/delta-rs/issues/392
