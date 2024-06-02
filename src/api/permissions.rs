@@ -153,8 +153,9 @@ impl Permissions {
     }
 
     // /api/2.1/unity-catalog/permissions/{securable_type}/{full_name}
-    pub async fn can_read(&self, securable_type: SecurableType, full_name: &str, principal: &str) -> Result<bool, Error> {
+    pub async fn can_read(&self, full_name: &str, principal: &str) -> Result<bool, Error> {
         let readable_permissions = vec!["SELECT", "ALL_PRIVILEGES"];
+        let securable_type: SecurableType = SecurableType::Table;
 
         // split full name and make 3 different api calls since permissions can be delagated 
         let name_parts: Vec<&str> = full_name.split('.').collect();
@@ -171,8 +172,10 @@ impl Permissions {
     }
 
 
-    pub async fn can_write(&self, securable_type: SecurableType, full_name: &str, principal: &str) -> Result<bool, Error> {
+    pub async fn can_write(&self, full_name: &str, principal: &str) -> Result<bool, Error> {
         let writable_permissions: Vec<&str> = vec!["MODIFY", "ALL_PRIVILEGES"];
+        let securable_type: SecurableType = SecurableType::Table;
+
 
         // split full name and make 3 different api calls since permissions can be delagated 
         let name_parts: Vec<&str> = full_name.split('.').collect();

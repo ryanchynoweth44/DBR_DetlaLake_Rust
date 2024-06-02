@@ -4,6 +4,7 @@ use reqwest::{Error, Response};
 use serde::Deserialize;
 use sqlx::prelude::FromRow;
 
+
 #[derive(Clone)]
 pub struct MetastoreClient {
     pub api_client: APIClient,
@@ -97,7 +98,7 @@ impl MetastoreClient {
 
     // Get an individual table object
     // https://docs.databricks.com/api/workspace/tables/get
-    pub async fn get_table(&self, full_table_name: String) -> Result<Table, Error> {
+    pub async fn get_table(&self, full_table_name: &str) -> Result<Table, Error> {
         let url: String = format!(
             "https://{}/api/2.1/unity-catalog/tables/{}",
             &self.api_client.workspace_name, full_table_name

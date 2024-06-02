@@ -1,8 +1,8 @@
 use api::permissions::{self};
 use dotenv::dotenv;
 use log;
-use std::{env, ptr::read};
-use reqwest::Error;
+use std::{env, str::FromStr};
+use std::io::Error;
 pub mod sql {
     pub mod sql_client;
 }
@@ -75,18 +75,18 @@ async fn main() -> Result<(), Error> {
     // println!("{}", writes);
 
     /////////// Data Reading
-    let table_path: &str = &format!("abfs://{}/__unitystorage/schemas/326fc918-bcd6-43e0-ab85-d7afd4e0cc9b/tables/07310682-a42f-4896-b272-935a515abb0e", azure_storage_container.clone());
-    let storage_options: AzureDataLakeGen2Options = AzureDataLakeGen2Options { azure_storage_account_name: azure_storage_account_name.clone(), 
-        azure_client_id: azure_client_id, 
-        azure_client_secret : azure_client_secret, 
-        azure_tenant_id : azure_tenant_id
-    };
-    let reader = DeltaLakeReader::new(storage_options);
+    // let table_path: &str = &format!("abfs://{}/__unitystorage/schemas/326fc918-bcd6-43e0-ab85-d7afd4e0cc9b/tables/07310682-a42f-4896-b272-935a515abb0e", azure_storage_container.clone());
+    let storage_options: AzureDataLakeGen2Options = AzureDataLakeGen2Options::new(azure_storage_account_name.clone(), azure_client_id, azure_client_secret, azure_tenant_id );
+    let reader: DeltaLakeReader = DeltaLakeReader::new(storage_options, permissions_client.clone(), metastore_client.clone(), String::from(principal));
 
-    let df = reader.read_delta_table_as_datafusion(table_path).await.unwrap();
 
-    let pdf = reader.read_delta_table_as_polars(table_path).await.unwrap();
+    let table_name: &str = "rac_demo_catalog.rust_schema.dbu_forecasts";
 
+    // let df = reader.read_delta_table_as_datafusion(table_path).await.unwrap();
+
+    // let pdf: polars::prelude::DataFrame = reader.read_delta_table_as_polars(table_name, false).await.unwrap();
+    let pdf: polars::prelude::DataFrame = reader.read_delta_table_as_polars(table_name, true).await.unwrap();
+    println!("{}", pdf);
     Ok(())
 
 }
