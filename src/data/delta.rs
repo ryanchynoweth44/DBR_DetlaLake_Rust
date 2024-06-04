@@ -2,18 +2,15 @@ use deltalake::datafusion::execution::context::SessionState;
 //https://github.com/delta-io/delta-rs
 use deltalake::{open_table_with_storage_options, DeltaTableError, datafusion::prelude::*, Path, ObjectStore};
 use deltalake::azure::register_handlers;
-use std::default;
 use std::sync::Arc;
-use std::collections::HashMap;
 use polars::prelude::*;
 use std::io::Cursor;
 use std::convert::TryFrom;
-use serde::Deserialize;
 use bytes::Bytes; 
-use futures::stream::{self, StreamExt};
+use futures;
 
-use crate::api::permissions::*; 
-use crate::api::metastore::*;
+use super::permissions::*; 
+use super::metastore::*;
 
 
 pub struct DeltaLakeReader {
@@ -36,9 +33,17 @@ impl DeltaLakeReader {
     /// # Examples
     ///
     /// ```
-    ///     let reader: DeltaLakeReader = DeltaLakeReader::new(storage_options, permissions_client.clone(), metastore_client.clone(), String::from(principal));
+    ///  let reader: DeltaLakeReader = DeltaLakeReader::new(principal, db_token, workspace_name).await;
     /// ```
-    pub fn new(storage_credentials: AzureDataLakeGen2Options, permissions_client: Permissions, metastore_client: MetastoreClient, principal: String) -> Self {
+    pub async fn new(principal: String, db_token: String, workspace_name: String) -> Self {
+
+        let permissions_client: Permissions = Permissions::new(workspace_name.clone(), db_token.clone());
+
+        let storage_credentials: AzureDataLakeGen2Options = permissions_client.authenticate_user(&principal, &db_token, &workspace_name).await.unwrap();
+
+        let metastore_client: MetastoreClient = MetastoreClient::new(workspace_name.clone(), db_token.clone());
+
+
         let reader: DeltaLakeReader = DeltaLakeReader {
             storage_credentials,
             permissions_client,
@@ -239,32 +244,3 @@ impl DeltaLakeReader {
 // }
 
 
-// https://delta-io.github.io/delta-rs/usage/loading-table/
-// https://docs.rs/object_store/latest/object_store/azure/enum.AzureConfigKey.html#variants
-#[derive(Debug, Clone, Deserialize)]
-pub struct AzureDataLakeGen2Options {
-    azure_storage_account_name: String, 
-    azure_client_id: String,
-    azure_client_secret: String,
-    azure_tenant_id: String,
-}
-impl AzureDataLakeGen2Options {
-    pub fn new(azure_storage_account_name: String, azure_client_id: String, azure_client_secret: String, azure_tenant_id: String ) -> Self {
-        let options: AzureDataLakeGen2Options = AzureDataLakeGen2Options {
-            azure_storage_account_name,
-            azure_client_id,
-            azure_client_secret,
-            azure_tenant_id
-        };
-        options
-    }
-
-    pub fn to_hash_map(&self) -> HashMap<String, String> {
-        let mut map = HashMap::new();
-        map.insert("azure_storage_account_name".to_string(), self.azure_storage_account_name.clone());
-        map.insert("azure_client_id".to_string(), self.azure_client_id.clone());
-        map.insert("azure_client_secret".to_string(), self.azure_client_secret.clone());
-        map.insert("azure_tenant_id".to_string(), self.azure_tenant_id.clone());
-        map
-    }
-}

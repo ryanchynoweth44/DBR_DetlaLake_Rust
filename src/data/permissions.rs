@@ -1,6 +1,11 @@
 use reqwest::{Response, Error};
 use serde::Deserialize;
 use super::api_client::APIClient;
+use std::collections::HashMap;
+use std::env;
+
+
+
 
 
 #[derive(Clone)]
@@ -9,6 +14,17 @@ pub struct Permissions {
 }
 
 impl Permissions {
+
+    pub fn new(workspace_name: String, db_token: String ) -> Self {
+        let api_client: APIClient = APIClient{
+            db_token: db_token,
+            workspace_name: workspace_name
+        };
+
+        let perms: Permissions = Permissions { api_client: api_client };
+
+        perms
+    }
 
     /// Returns User Struct containing the princpal used for authentication. 
     ///
@@ -22,9 +38,31 @@ impl Permissions {
     /// ```
     /// let active_user: api::permissions::User = permissions_client.authenticate_user("ryan.chynoweth@databricks.com", &api_client.db_token).await?;
     /// ```
-    pub async fn authenticate_user(&self, user_name: &str, user_token: &str) -> Result<User, Error> {
+    pub async fn authenticate_user(&self, user_name: &str, user_token: &str, workspace_name: &str) -> Result<AzureDataLakeGen2Options, Error> {
+        // need to add encryption and verification of user
+
         // user_token will likely be required in the future as there will be a service token and a user token. 
         let auth_url: String = format!("https://{}/api/2.0/preview/scim/v2/Me", &self.api_client.workspace_name);
+
+        let azure_storage_account_name: String = env::var("AZURE_STORAGE_ACCOUNT_NAME").expect("AZURE_STORAGE_ACCOUNT_NAME not set");
+        let azure_client_id: String = env::var("AZURE_CLIENT_ID").expect("AZURE_CLIENT_ID not set");
+        let azure_client_secret: String = env::var("AZURE_CLIENT_SECRET").expect("AZURE_CLIENT_SECRET not set");
+        let azure_tenant_id: String = env::var("AZURE_TENANT_ID").expect("AZURE_TENANT_ID not set");
+        // let workspace_name: String = env::var("WORKSPACE_NAME").expect("WORKSPACE_NAME not set");
+
+
+        let storage_options: AzureDataLakeGen2Options = AzureDataLakeGen2Options::new(
+            azure_storage_account_name,
+            azure_client_id,
+            azure_client_secret,
+            azure_tenant_id
+        );
+
+        // create a user client that is different from the other services? 
+        let auth_client: APIClient = APIClient {
+            db_token: String::from(user_token),
+            workspace_name: String::from(workspace_name)
+        };
 
         let response: Response = self.api_client.fetch(&auth_url).await?;
         let status: bool = response.status().is_success();
@@ -38,7 +76,7 @@ impl Permissions {
         }
 
         
-        Ok(user)
+        Ok(storage_options)
     }
 
     // /api/2.1/unity-catalog/permissions/{securable_type}/{full_name}
@@ -307,3 +345,35 @@ impl ToString for SecurableType {
     }
 }
 
+
+
+
+// https://delta-io.github.io/delta-rs/usage/loading-table/
+// https://docs.rs/object_store/latest/object_store/azure/enum.AzureConfigKey.html#variants
+#[derive(Debug, Clone, Deserialize)]
+pub struct AzureDataLakeGen2Options {
+    azure_storage_account_name: String, 
+    azure_client_id: String,
+    azure_client_secret: String,
+    azure_tenant_id: String,
+}
+impl AzureDataLakeGen2Options {
+    pub fn new(azure_storage_account_name: String, azure_client_id: String, azure_client_secret: String, azure_tenant_id: String ) -> Self {
+        let options: AzureDataLakeGen2Options = AzureDataLakeGen2Options {
+            azure_storage_account_name,
+            azure_client_id,
+            azure_client_secret,
+            azure_tenant_id
+        };
+        options
+    }
+
+    pub fn to_hash_map(&self) -> HashMap<String, String> {
+        let mut map = HashMap::new();
+        map.insert("azure_storage_account_name".to_string(), self.azure_storage_account_name.clone());
+        map.insert("azure_client_id".to_string(), self.azure_client_id.clone());
+        map.insert("azure_client_secret".to_string(), self.azure_client_secret.clone());
+        map.insert("azure_tenant_id".to_string(), self.azure_tenant_id.clone());
+        map
+    }
+}

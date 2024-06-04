@@ -1,17 +1,27 @@
 use super::api_client::APIClient;
-use crate::sql::sql_client::SqlClient as SQLClient;
 use reqwest::{Error, Response};
 use serde::Deserialize;
-use sqlx::prelude::FromRow;
 
 
 #[derive(Clone)]
 pub struct MetastoreClient {
-    pub api_client: APIClient,
-    pub sql_client: SQLClient,
+    api_client: APIClient,
 }
 
 impl MetastoreClient {
+
+    
+    pub fn new(workspace_name: String, db_token: String) -> Self {
+        let api_client: APIClient = APIClient{
+            db_token: db_token,
+            workspace_name: workspace_name
+        };
+        
+        let perms: MetastoreClient = MetastoreClient { api_client: api_client };
+
+        perms
+    }
+
     // List all catalogs in a Databricks' Unity Catalog Metastore
     // https://docs.databricks.com/api/workspace/catalogs/list
     async fn fetch_catalogs(&self) -> Result<CatalogResponse, Error> {
@@ -107,12 +117,6 @@ impl MetastoreClient {
         let response: Response = self.api_client.fetch(&url).await?;
         let table: Table = response.json().await?;
 
-        // if we get a table from the API we will update it locally
-        let mut tables: Vec<Table> = Vec::new(); // Create an empty vector of tables
-        tables.push(table.clone());
-        let table_response = TableResponse::new(tables);
-        self.sql_client.write_tables(table_response).await.unwrap();
-
         Ok(table)
     }
 
@@ -126,12 +130,6 @@ impl MetastoreClient {
 
         let response: Response = self.api_client.fetch(&url).await?;
         let schema: Schema = response.json().await?;
-
-        // if we get a schema from the API we will update it locally
-        let mut schemas: Vec<Schema> = Vec::new(); // Create an empty vector of schemas
-        schemas.push(schema.clone());
-        let schema_response = SchemaResponse::new(schemas);
-        self.sql_client.write_schemas(schema_response).await.unwrap();
 
         Ok(schema)
     }
@@ -147,92 +145,9 @@ impl MetastoreClient {
         let response: Response = self.api_client.fetch(&url).await?;
         let catalog: Catalog = response.json().await?;
 
-        // if we get a schema from the API we will update it locally
-        let mut catalogs: Vec<Catalog> = Vec::new(); // Create an empty vector of Catalogs
-        catalogs.push(catalog.clone());
-        let catalog_response = CatalogResponse::new(catalogs);
-        self.sql_client.write_catalogs(catalog_response).await.unwrap();
-
         Ok(catalog)
     }
 
-    pub async fn refresh_catalogs(&self) -> Result<(), Error> {
-        log::info!("Getting Catalogs. ");
-        let catalogs: CatalogResponse = self.fetch_catalogs().await?;
-        self.sql_client.write_catalogs(catalogs).await.unwrap();
-
-        Ok(())
-    }
-
-    pub async fn refresh_all_schemas(&self) -> Result<(), Error> {
-        let catalogs: CatalogResponse = self.fetch_catalogs().await?;
-        log::info!("Getting Schemas.");
-        for catalog in catalogs.catalogs {
-            // exclude delta sharing catalogs for now
-            if catalog.catalog_type != "DELTASHARING_CATALOG"
-                && catalog.name != "__databricks_internal"
-                && catalog.name != "adrian_hive_test"
-            {
-                let schemas: SchemaResponse = self.fetch_schemas(catalog.name, None).await?;
-                self.sql_client.write_schemas(schemas).await.unwrap();
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn refresh_all_tables(&self) -> Result<(), Error> {
-        let catalogs: CatalogResponse = self.fetch_catalogs().await?;
-        let num_cats = catalogs.catalogs.len();
-        let mut i = 0;
-        for catalog in catalogs.catalogs {
-            log::info!("Num catalogs: {} out of {}", i, num_cats);
-            i = i + 1;
-            if catalog.catalog_type != "DELTASHARING_CATALOG"
-                && catalog.name != "__databricks_internal"
-                && catalog.name != "adrian_hive_test"
-            {
-                let schemas: SchemaResponse =
-                    self.fetch_schemas(catalog.name.clone(), None).await?;
-                if let Some(schemas) = schemas.schemas {
-                    for schema in schemas {
-                        log::info!(
-                            "----------------> Getting Tables for Schema {}.{}.",
-                            schema.catalog_name,
-                            schema.name
-                        );
-                        let table_response = self
-                            .fetch_tables(catalog.name.clone(), schema.name, None)
-                            .await?;
-                        if let Some(ref tables) = table_response.tables {
-                            log::info!("Num Tables: {}", tables.len());
-                            self.sql_client.write_tables(table_response).await.unwrap();
-                            // std::thread::sleep(std::time::Duration::from_secs(1));
-                        }
-                    }
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn refresh_tables(&self, catalog_name: String, schema_name: String) -> Result<(), Error> {
-        let table_response = self.fetch_tables(catalog_name, schema_name, None).await?;
-        if let Some(ref tables) = table_response.tables {
-            log::info!("Num Tables: {}", tables.len());
-            self.sql_client.write_tables(table_response).await.unwrap();
-        }
-      Ok(())
-    }
-
-    pub async fn refresh_schemas(&self, catalog_name: String) -> Result<(), Error> {
-        let schema_response = self.fetch_schemas(catalog_name, None).await?;
-        if let Some(ref schemas) = schema_response.schemas {
-            log::info!("Num Schemas: {}", schemas.len());
-            self.sql_client.write_schemas(schema_response).await.unwrap();
-        }
-      Ok(())
-    }
 
 }
 
@@ -248,7 +163,7 @@ impl CatalogResponse {
 }
 
 // individual struct for catalogs
-#[derive(Debug, Deserialize, Clone, FromRow)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Catalog {
     pub name: String,
     pub owner: String,
@@ -287,7 +202,7 @@ impl SchemaResponse {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, FromRow)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Schema {
     pub name: String,
     pub catalog_name: String,
@@ -317,7 +232,7 @@ impl TableResponse {
     }
 }
 
-#[derive(Debug, Deserialize, Clone, FromRow)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Table {
     pub name: String,
     pub catalog_name: String,
