@@ -14,6 +14,7 @@ serde_json = { version = "1.0" }
 log = { version = "0.4.3" }
 env_logger = { version = "0.11.3" }
 deltalake = { version = "0.17.3", features = ["azure", "datafusion"] }
-polars = { version = "0.40.0", features = ["lazy", "parquet" ] }
+polars = { version = "0.40.0", features = ["lazy", "parquet", "azure" ] }
 bytes = "1.6.0"
 futures = "0.3.30"
+arrow = "52.0.0"

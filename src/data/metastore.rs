@@ -4,11 +4,11 @@ use serde::Deserialize;
 
 
 #[derive(Clone)]
-pub struct MetastoreClient {
+pub struct Client {
     api_client: APIClient,
 }
 
-impl MetastoreClient {
+impl Client {
 
     
     pub fn new(workspace_name: String, db_token: String) -> Self {
@@ -17,7 +17,7 @@ impl MetastoreClient {
             workspace_name: workspace_name
         };
         
-        let perms: MetastoreClient = MetastoreClient { api_client: api_client };
+        let perms: Client = Client { api_client: api_client };
 
         perms
     }

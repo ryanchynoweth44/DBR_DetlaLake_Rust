@@ -1,7 +1,7 @@
 use dotenv::dotenv;
 use log;
 use std::env;
-use std::io::Error;
+use std::error::Error;
 pub mod data{
     pub mod metastore;
     pub mod permissions;
@@ -9,12 +9,11 @@ pub mod data{
     pub mod delta;
 }
 
-use data::delta::DeltaLakeReader;
-use data::permissions::AzureDataLakeGen2Options;
+use data::delta::DeltaLakeManager;
 
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), Box<dyn Error>> {
     dotenv().ok();
     // env_logger::init();
     env_logger::builder()
@@ -26,7 +25,7 @@ async fn main() -> Result<(), Error> {
     let principal: String = String::from("ryan.chynoweth@databricks.com");
 
     // clients 
-    // let metastore_client: data::metastore::MetastoreClient = data::metastore::MetastoreClient::new(workspace_name.clone(), db_token.clone());
+    // let metastore_client: data::metastore::Client = data::metastore::Client::new(workspace_name.clone(), db_token.clone());
     // let permissions_client: data::permissions::Permissions = data::permissions::Permissions::new(workspace_name.clone(), db_token.clone());
     // Full Catalog Update - Needs to find better way to just send it to a thread to run in backgorund.
     // let _catalog_update: Result<(), Error> = metastore_client.refresh_catalogs().await;
@@ -56,16 +55,19 @@ async fn main() -> Result<(), Error> {
     // println!("{}", writes);
 
     /////////// Data Reading
-    let reader: DeltaLakeReader = DeltaLakeReader::new(principal, db_token, workspace_name).await;
+    let reader: DeltaLakeManager = DeltaLakeManager::new(principal, db_token, workspace_name).await?;
 
 
     let table_name: &str = "rac_demo_catalog.rust_schema.dbu_forecasts";
 
     // let df = reader.read_delta_table_as_datafusion(table_path).await.unwrap();
 
-    // let pdf: polars::prelude::DataFrame = reader.read_delta_table_as_polars(table_name, false).await.unwrap();
     let pdf: polars::prelude::DataFrame = reader.read_delta_table_as_polars(table_name, true).await.unwrap();
     println!("{}", pdf);
+
+    let ldf = reader.read_delta_table_as_lazy_polars(table_name).await?.collect()?;
+    println!("{}", ldf);
+
     Ok(())
 
 }
