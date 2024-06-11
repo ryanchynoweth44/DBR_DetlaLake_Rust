@@ -1,7 +1,8 @@
 [package]
-name = "databricks-rust-catalog"
+name = "databricks_rust_catalog"
 version = "0.1.0"
 edition = "2021"
+path = "src/"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,3 +19,7 @@ polars = { version = "0.40.0", features = ["lazy", "parquet", "azure" ] }
 bytes = "1.6.0"
 futures = "0.3.30"
 arrow = "52.0.0"
+
+[lib]
+name = "databricks_rust_catalog"
+path = "src/main.rs" 

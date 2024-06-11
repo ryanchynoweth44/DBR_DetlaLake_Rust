@@ -57,17 +57,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     /////////// Data Reading
     let reader: DeltaLakeManager = DeltaLakeManager::new(principal, db_token, workspace_name).await?;
 
-
     let table_name: &str = "rac_demo_catalog.rust_schema.dbu_forecasts";
 
     // let df = reader.read_delta_table_as_datafusion(table_path).await.unwrap();
 
     let pdf: polars::prelude::DataFrame = reader.read_delta_table_as_polars(table_name, true).await.unwrap();
     println!("{}", pdf);
-
-    let ldf = reader.read_delta_table_as_lazy_polars(table_name).await?.collect()?;
-    println!("{}", ldf);
-
+    
     Ok(())
 
 }

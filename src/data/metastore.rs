@@ -10,7 +10,18 @@ pub struct Client {
 
 impl Client {
 
-    
+    /// Creates metastore client struct 
+    ///
+    /// # Arguments
+    ///
+    /// * `workspace_name` - The Databricks workspace name containing the metastore access i.e. 'adb-12345678912345.11.azuredatabricks.net'
+    /// * `db_token` - The user token to authenticate against Databricks Unity Catalog. 
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  let metastore_client: Client = Client::new(workspace_name.clone(), db_token.clone());
+    /// ```    
     pub fn new(workspace_name: String, db_token: String) -> Self {
         let api_client: APIClient = APIClient{
             db_token: db_token,
@@ -22,8 +33,15 @@ impl Client {
         perms
     }
 
-    // List all catalogs in a Databricks' Unity Catalog Metastore
-    // https://docs.databricks.com/api/workspace/catalogs/list
+    /// List all catalogs in a Databricks' Unity Catalog Metastore
+    /// - https://docs.databricks.com/api/workspace/catalogs/list
+    /// 
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  client.fetch_catalogs();
+    /// ```    
+    #[allow(dead_code)]
     async fn fetch_catalogs(&self) -> Result<CatalogResponse, Error> {
         let catalog_url: String = format!(
             "https://{}/api/2.1/unity-catalog/catalogs",
@@ -44,8 +62,15 @@ impl Client {
         Ok(catalogs)
     }
 
-    // List schemas fpr a given catalog in a Databricks' Unity Catalog Metastore
-    // https://docs.databricks.com/api/workspace/schemas/list
+    /// List schemas fpr a given catalog in a Databricks' Unity Catalog Metastore
+    /// - https://docs.databricks.com/api/workspace/schemas/list
+    /// 
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  client.fetch_schemas(catalog_name);
+    /// ```  
+    #[allow(dead_code)]
     async fn fetch_schemas(
         &self,
         catalog_name: String,
@@ -74,8 +99,15 @@ impl Client {
         Ok(schemas)
     }
 
-    // List all tables for a given schema/catalog in a Databricks' Unity Catalog Metastore
-    // https://docs.databricks.com/api/workspace/tables/list
+    /// List all tables for a given schema/catalog in a Databricks' Unity Catalog Metastore
+    /// - https://docs.databricks.com/api/workspace/tables/list
+    /// 
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  client.fetch_tables(catalog_name);
+    /// ```
+    #[allow(dead_code)]
     async fn fetch_tables(
         &self,
         catalog_name: String,
@@ -106,8 +138,14 @@ impl Client {
         Ok(tables)
     }
 
-    // Get an individual table object
-    // https://docs.databricks.com/api/workspace/tables/get
+    /// Get an individual table object
+    /// https://docs.databricks.com/api/workspace/tables/get
+    /// 
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  client.get_table(!format("{}.{}.{}", catalog_name, schema_name, table_name));
+    /// ```  
     pub async fn get_table(&self, full_table_name: &str) -> Result<Table, Error> {
         let url: String = format!(
             "https://{}/api/2.1/unity-catalog/tables/{}",
@@ -120,8 +158,14 @@ impl Client {
         Ok(table)
     }
 
-    // Get an individual schema object
+    /// Get an individual schema object
     // https://docs.databricks.com/api/workspace/schemas/get
+    /// 
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  client.get_schema(!format("{}.{}", catalog_name, schema_name));
+    /// ```  
     pub async fn get_schema(&self, full_schema_name: String) -> Result<Schema, Error> {
         let url: String = format!(
             "https://{}/api/2.1/unity-catalog/schemas/{}",
@@ -134,8 +178,14 @@ impl Client {
         Ok(schema)
     }
 
-    // Get an individual catalog object
-    // https://docs.databricks.com/api/workspace/schemas/get
+    /// Get an individual catalog object
+    /// - https://docs.databricks.com/api/workspace/schemas/get
+    /// 
+    /// # Examples
+    ///
+    /// ```ignore
+    ///  client.get_catalog(catalog_name);
+    /// ```  
     pub async fn get_catalog(&self, name: String) -> Result<Catalog, Error> {
         let url: String = format!(
             "https://{}/api/2.1/unity-catalog/catalogs/{}",
@@ -192,16 +242,26 @@ pub struct Catalog {
     // provisioning_info
 }
 
+/// Represents a response containing schemas.
 #[derive(Debug, Deserialize, Clone)]
 pub struct SchemaResponse {
+    /// Optional vector of schemas.
     pub schemas: Option<Vec<Schema>>,
 }
+
 impl SchemaResponse {
+    /// Constructs a new `SchemaResponse` with the provided vector of schemas.
+    /// # Arguments
+    /// * `schemas` - A vector of `Schema` instances.
+    ///
+    /// # Returns
+    /// A new `SchemaResponse` instance with the provided schemas.
     pub fn new(schemas: Vec<Schema>) -> Self {
         SchemaResponse { schemas: Some(schemas) }
     }
 }
 
+// represents a schema object in unity catalog 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Schema {
     pub name: String,
@@ -227,11 +287,19 @@ pub struct TableResponse {
     pub tables: Option<Vec<Table>>,
 }
 impl TableResponse {
+    /// Constructs a new `TableResponse` with the provided vector of tables.
+    /// # Arguments
+    ///
+    /// * `tables` - A vector of `Table` instances.
+    ///
+    /// # Returns
+    /// A new `TableResponse` instance with the provided tables.
     pub fn new(tables: Vec<Table>) -> Self {
         TableResponse { tables: Some(tables) }
     }
 }
 
+// represents a table object in unity catalog
 #[derive(Debug, Deserialize, Clone)]
 pub struct Table {
     pub name: String,

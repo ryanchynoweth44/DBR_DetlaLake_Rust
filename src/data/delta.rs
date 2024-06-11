@@ -1,41 +1,30 @@
-//https://github.com/delta-io/delta-rs
-use deltalake::{
-    open_table_with_storage_options, 
-    DeltaTable,
-    datafusion::prelude::DataFrame as DatafusionDataFrame, 
-    datafusion::prelude::*,
-    Path, 
-    ObjectStore,
-    azure::register_handlers
-};
-use polars::prelude::{
-    DataFrame as PolarsDataFrame,
-    *,
-};
-
-
-use std::path::PathBuf;
-use std::error::Error;
-use std::sync::Arc;
-use std::io::Cursor;
-use std::convert::TryFrom;
-use bytes::Bytes; 
-use futures;
-
-
 
 use super::api_client::APIClient;
-use super::permissions;
-use super::permissions::AzureDataLakeGen2Options; 
 use super::metastore::*;
+use super::permissions;
 
+use deltalake::{
+    azure::register_handlers, datafusion::prelude::DataFrame as DatafusionDataFrame,
+    datafusion::prelude::*, open_table_with_storage_options, DeltaTable, ObjectStore, Path,
+};
+use polars::prelude::{DataFrame as PolarsDataFrame, *};
+
+use std::collections::HashMap;
+use std::convert::TryFrom;
+use std::env;
+use std::error::Error;
+use std::io::Cursor;
+use std::sync::Arc;
+
+use bytes::Bytes;
+use futures;
+use serde::Deserialize;
 
 pub struct DeltaLakeManager {
     storage_credentials: AzureDataLakeGen2Options,
     api_client: APIClient,
     metastore_client: Client,
     principal: String,
-
 }
 impl DeltaLakeManager {
     /// Creates the delta lake reader struct
@@ -43,30 +32,46 @@ impl DeltaLakeManager {
     /// # Arguments
     ///
     /// * `storage_credentials` - The credentials used to authenticate against azure storage
-    /// * `api_client` - API Client to validate user permissions against unity catalog 
-    /// * `metastore_client` - Metastore Client object to interact with Unity Catalog APIs for data objects. 
-    /// * `principal` - The active user's username. 
+    /// * `api_client` - API Client to validate user permissions against unity catalog
+    /// * `metastore_client` - Metastore Client object to interact with Unity Catalog APIs for data objects.
+    /// * `principal` - The active user's username.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     ///  let reader: DeltaLakeManager = DeltaLakeManager::new(principal, db_token, workspace_name).await;
     /// ```
-    pub async fn new(principal: String, db_token: String, workspace_name: String) -> Result<Self, Box<dyn Error>> {
-        let api_client: APIClient = APIClient{
+    pub async fn new(
+        principal: String,
+        db_token: String,
+        workspace_name: String,
+    ) -> Result<Self, Box<dyn Error>> {
+        let api_client: APIClient = APIClient {
             db_token: db_token.clone(),
-            workspace_name: workspace_name.clone()
+            workspace_name: workspace_name.clone(),
         };
 
+        let azure_storage_account_name: String =
+            env::var("AZURE_STORAGE_ACCOUNT_NAME").expect("AZURE_STORAGE_ACCOUNT_NAME not set");
+        let azure_client_id: String = env::var("AZURE_CLIENT_ID").expect("AZURE_CLIENT_ID not set");
+        let azure_client_secret: String =
+            env::var("AZURE_CLIENT_SECRET").expect("AZURE_CLIENT_SECRET not set");
+        let azure_tenant_id: String = env::var("AZURE_TENANT_ID").expect("AZURE_TENANT_ID not set");
+        // let workspace_name: String = env::var("WORKSPACE_NAME").expect("WORKSPACE_NAME not set");
 
-        let storage_credentials: AzureDataLakeGen2Options = permissions::authenticate_user(api_client.clone(), &principal, &db_token, &workspace_name).await?;
+        let storage_credentials: AzureDataLakeGen2Options = AzureDataLakeGen2Options::new(
+            azure_storage_account_name,
+            azure_client_id,
+            azure_client_secret,
+            azure_tenant_id,
+        );
+
+        let _authorized: bool = permissions::authenticate_user(api_client.clone(),&principal).await?;
 
         let metastore_client: Client = Client::new(workspace_name.clone(), db_token.clone());
 
-
         let reader: DeltaLakeManager = DeltaLakeManager {
             storage_credentials,
-            // permissions_client,
             api_client,
             metastore_client,
             principal,
@@ -75,10 +80,14 @@ impl DeltaLakeManager {
         // Call the register_handlers function
         register_handlers(None);
 
-        Ok(reader)
+        if _authorized {
+            return Ok(reader)
+        } else {
+            return Err(Box::<dyn Error>::from("Authorization Failed."));
+        }
     }
 
-    /// If the user has permission to read the table, then this function returns a datafusion dataframe. 
+    /// If the user has permission to read the table, then this function returns a datafusion dataframe.
     ///
     /// # Arguments
     ///
@@ -86,12 +95,20 @@ impl DeltaLakeManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let table_name: &str = "my_catalog.my_schema.my_table";
     /// let df = reader.read_delta_table_as_datafusion(table_path).await?;
     /// ```
-    pub async fn read_delta_table_as_datafusion(&self, table_name: &str) -> Result<DatafusionDataFrame, Box<dyn Error>> {
-        let table_path: String = self.metastore_client.get_table(table_name).await?.storage_location.ok_or("Table Location Not Found.")?;
+    pub async fn read_delta_table_as_datafusion(
+        &self,
+        table_name: &str,
+    ) -> Result<DatafusionDataFrame, Box<dyn Error>> {
+        let table_path: String = self
+            .metastore_client
+            .get_table(table_name)
+            .await?
+            .storage_location
+            .ok_or("Table Location Not Found.")?;
         if !permissions::can_read(self.api_client.clone(), &table_name, &self.principal).await? {
             log::error!("Permissions on Object {} Denied.", table_name);
             return Err(Box::<dyn Error>::from("Permission Denied."));
@@ -99,7 +116,9 @@ impl DeltaLakeManager {
             log::info!("Validated Permissions on Object: {}", table_name);
 
             log::info!("Reading Table: {}", table_path);
-            let table: DeltaTable = open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map()).await?;
+            let table: DeltaTable =
+                open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map())
+                    .await?;
 
             let ctx: SessionContext = SessionContext::new();
 
@@ -108,8 +127,6 @@ impl DeltaLakeManager {
             let df: DatafusionDataFrame = ctx.sql("SELECT * FROM loadtable").await?;
             return Ok(df);
         }
-
-        
     }
 
     /// Reads a delta table in a parallel fashion
@@ -120,34 +137,43 @@ impl DeltaLakeManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let table_path: String = self.metastore_client.get_table(table_name).await?.storage_location.ok_or("Table Location Not Found.")?;
     /// let table_bytes = self.parallel_read_table_as_bytes(&table_path).await?;
     /// ```
-    async fn parallel_read_table_as_bytes(&self, table_path: &str) -> Result<Vec<Bytes>, Box<dyn Error>> {
+    async fn parallel_read_table_as_bytes(
+        &self,
+        table_path: &str,
+    ) -> Result<Vec<Bytes>, Box<dyn Error>> {
         log::info!("Reading Table: {}", table_path);
-        let table: DeltaTable = open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map()).await?;
-    
+        let table: DeltaTable =
+            open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map())
+                .await?;
+
         let files: Vec<String> = table.get_file_uris()?.collect();
         let object_store: Arc<dyn ObjectStore> = table.object_store();
-    
-        let futures: Vec<_> = files.into_iter().map(|file| {
-            let object_store = Arc::clone(&object_store);
-            async move {
-                log::info!("Loading file: {}", file);
-                let parts: Vec<&str> = file.split('/').collect();
-                let file_name: &str = parts.last().ok_or("Error Parsing File URIs")?;
-                let file_path: Path = Path::try_from(file_name.to_string())?;
-                let result = object_store.get(&file_path).await?;
-                let bytes = result.bytes().await?;
-                Ok::<Bytes, Box<dyn Error>>(bytes)
-            }
-        }).collect();
-    
-        let table_bytes: Vec<Bytes> = futures::future::join_all(futures).await
+
+        let futures: Vec<_> = files
+            .into_iter()
+            .map(|file| {
+                let object_store = Arc::clone(&object_store);
+                async move {
+                    log::info!("Loading file: {}", file);
+                    let parts: Vec<&str> = file.split('/').collect();
+                    let file_name: &str = parts.last().ok_or("Error Parsing File URIs")?;
+                    let file_path: Path = Path::try_from(file_name.to_string())?;
+                    let result = object_store.get(&file_path).await?;
+                    let bytes = result.bytes().await?;
+                    Ok::<Bytes, Box<dyn Error>>(bytes)
+                }
+            })
+            .collect();
+
+        let table_bytes: Vec<Bytes> = futures::future::join_all(futures)
+            .await
             .into_iter()
             .collect::<Result<Vec<_>, _>>()?;
-    
+
         Ok(table_bytes)
     }
 
@@ -159,13 +185,16 @@ impl DeltaLakeManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let table_path: String = self.metastore_client.get_table(table_name).await?.storage_location.ok_or("Table Location Not Found.")?;
     /// let table_bytes = self.read_table_as_bytes(&table_path).await?;
     /// ```
-    async fn read_table_as_bytes(&self, table_path: &str) -> Result<Vec<Bytes>, Box<dyn Error>> { // return bytes
+    async fn read_table_as_bytes(&self, table_path: &str) -> Result<Vec<Bytes>, Box<dyn Error>> {
+        // return bytes
         log::info!("Reading Table: {}", table_path);
-        let table: DeltaTable = open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map()).await?;
+        let table: DeltaTable =
+            open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map())
+                .await?;
 
         let mut table_bytes: Vec<Bytes> = Vec::default();
 
@@ -173,24 +202,22 @@ impl DeltaLakeManager {
         let files: Vec<String> = table.get_file_uris()?.collect();
         let object_store: Arc<dyn ObjectStore> = table.object_store();
 
-        // foreach file we need only the file name 
-        // provide it to the storage objet to download into bytes 
+        // foreach file we need only the file name
+        // provide it to the storage objet to download into bytes
         // load the bytes into a Vec<Bytes>
         for file in files.iter() {
             log::info!("Loading file: {}", file);
             let parts: Vec<&str> = file.split('/').collect();
-            let file_name: &str = parts[parts.len()-1];
+            let file_name: &str = parts[parts.len() - 1];
             let file_path: Path = Path::try_from(format!("{}", file_name))?;
             let result: deltalake::storage::GetResult = object_store.get(&file_path).await?;
             let bytes: Bytes = result.bytes().await?;
             table_bytes.push(bytes);
-            
         }
         Ok(table_bytes)
-
     }
 
-    /// If the user has permission to read the table, then this function returns a polars dataframe. 
+    /// If the user has permission to read the table, then this function returns a polars dataframe.
     ///
     /// # Arguments
     ///
@@ -199,33 +226,42 @@ impl DeltaLakeManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let table_name: &str = "my_catalog.my_schema.my_table";
     /// let df = reader.read_delta_table_as_polars(table_path, true).await?;
     /// ```
-    pub async fn read_delta_table_as_polars(&self, table_name: &str, parallel_read: bool) -> Result<PolarsDataFrame, Box<dyn Error>> {     
+    pub async fn read_delta_table_as_polars(
+        &self,
+        table_name: &str,
+        parallel_read: bool,
+    ) -> Result<PolarsDataFrame, Box<dyn Error>> {
         // create empty DF - we will replace it later with the if/else
-        let table_path: String = self.metastore_client.get_table(table_name).await?.storage_location.ok_or("Table Location Not Found.")?;
+        let table_path: String = self
+            .metastore_client
+            .get_table(table_name)
+            .await?
+            .storage_location
+            .ok_or("Table Location Not Found.")?;
         let mut df: PolarsDataFrame = PolarsDataFrame::default();
-        let mut table_bytes: Vec<Bytes> = Vec::default();
+        let mut _table_bytes: Vec<Bytes> = Vec::default();
 
         if !permissions::can_read(self.api_client.clone(), &table_name, &self.principal).await? {
             log::info!("Permissions on Object {} Denied.", table_name);
             return Ok(df);
         } else {
             log::info!("Validated Permissions on Object: {}", table_name);
-            // get the table as a vector of bytes each index is a parquet file 
+            // get the table as a vector of bytes each index is a parquet file
             if parallel_read {
                 log::info!("Parallel reading table.");
-                table_bytes = self.parallel_read_table_as_bytes(&table_path).await?;
+                _table_bytes = self.parallel_read_table_as_bytes(&table_path).await?;
             } else {
                 log::info!("Seirially readin table.");
-                table_bytes = self.read_table_as_bytes(&table_path).await?;
+                _table_bytes = self.read_table_as_bytes(&table_path).await?;
             }
-            
-            // foreach file we need only the file name 
+
+            // foreach file we need only the file name
             // load the bytes into a polars dataframe
-            for b in table_bytes {
+            for b in _table_bytes {
                 let cursor: Cursor<Bytes> = Cursor::new(b);
                 let new_df: PolarsDataFrame = ParquetReader::new(cursor).finish()?;
 
@@ -240,39 +276,31 @@ impl DeltaLakeManager {
                             df // Return the original DataFrame if the operation fails
                         }
                     };
-
                 }
-            }   
-        }        
+            }
+        }
         Ok(df)
     }
 
-    // doesn't work with cloud storage yet
-    pub async fn read_delta_table_as_lazy_polars(&self, table_name: &str) -> Result<LazyFrame, Box<dyn Error>> {
 
-        let table_path: String = self.metastore_client.get_table(table_name).await?.storage_location.ok_or("Table Location Not Found.")?;
-        let table: DeltaTable = open_table_with_storage_options(table_path, self.storage_credentials.to_hash_map()).await?;
-
-        let files: Vec<PathBuf> = table.get_file_uris()?.map(PathBuf::from).collect::<Vec<_>>(); 
-
-        let df: LazyFrame = LazyFrame::scan_parquet_files(Arc::from(files), ScanArgsParquet::default())?;
-
-        Ok(df)
-    } 
-
-    pub async fn write_polars_to_delta_table(&self, table_name: &str) -> Result<(), Box<dyn Error>> {     
+    pub async fn write_polars_to_delta_table(
+        &self,
+        table_name: &str,
+    ) -> Result<(), Box<dyn Error>> {
         // create empty DF - we will replace it later with the if/else
-        let table_path: String = self.metastore_client.get_table(table_name).await?.storage_location.ok_or("Table Location Not Found.")?;
+        let _table_path: String = self
+            .metastore_client
+            .get_table(table_name)
+            .await?
+            .storage_location
+            .ok_or("Table Location Not Found.")?;
 
         // INCOMPLETE
 
         Ok(())
-
     }
 
-
-
-        /// If the user has permission to read the table, then this function returns a datafusion dataframe. 
+    /// If the user has permission to read the table, then this function returns a datafusion dataframe.
     ///
     /// # Arguments
     ///
@@ -280,13 +308,16 @@ impl DeltaLakeManager {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let table_name: &str = "my_catalog.my_schema.my_table";
     /// let df = reader.read_delta_table_as_datafusion(table_path).await;
     /// ```
-    pub async fn write_datafusion_to_delta(&self, table_name: &str, df: DatafusionDataFrame) -> Result<(), Box<dyn Error>> {
+    pub async fn write_datafusion_to_delta(
+        &self,
+        table_name: &str,
+        df: DatafusionDataFrame,
+    ) -> Result<(), Box<dyn Error>> {
         let table_metadata: Table = self.metastore_client.get_table(table_name).await?;
-
 
         if !permissions::can_write(self.api_client.clone(), &table_name, &self.principal).await? {
             log::error!("Permissions on Object {} Denied.", table_name);
@@ -295,7 +326,12 @@ impl DeltaLakeManager {
             log::info!("Validated Permissions on Object: {}", table_name);
 
             log::info!("Reading Table: {}", table_metadata.full_name);
-            let table: DeltaTable = open_table_with_storage_options(table_metadata.storage_location.ok_or("Table Location Not Found.")?, self.storage_credentials.to_hash_map()).await?;
+            let _table: DeltaTable = open_table_with_storage_options(
+                table_metadata
+                    .storage_location
+                    .ok_or("Table Location Not Found.")?,
+                self.storage_credentials.to_hash_map(),
+            ).await?;
 
             // let record_batches = df.collect().await?;
             // // get json rows
@@ -311,15 +347,10 @@ impl DeltaLakeManager {
 
             // // Commit the changes to the table.
             // writer.flush_and_commit(&mut table).await?;
-                
-            
+
             return Ok(());
         }
-
-        
     }
-
-
 
     // async fn polars_to_arrow(df: &polars::prelude::DataFrame) -> Result<RecordBatch, PolarsError> {
 
@@ -346,7 +377,62 @@ impl DeltaLakeManager {
     // async fn datafusion_to_arrow(&self, df: deltalake::datafusion::prelude::DataFrame) {
     //     // https://github.com/apache/datafusion/blob/e676f3c114ce00972b4bfb68c4e0a87e500a2286/datafusion-examples/examples/flight_server.rs#L102
     // }
-
-
 }
 
+/// Struct representing options for Azure Data Lake Gen2
+/// Refer to: https://delta-io.github.io/delta-rs/usage/loading-table/
+#[derive(Debug, Clone, Deserialize)]
+struct AzureDataLakeGen2Options {
+    azure_storage_account_name: String,
+    azure_client_id: String,
+    azure_client_secret: String,
+    azure_tenant_id: String,
+}
+
+impl AzureDataLakeGen2Options {
+    /// Creates a new instance of `AzureDataLakeGen2Options`
+    ///
+    /// # Arguments
+    ///
+    /// * `azure_storage_account_name` - Name of the Azure storage account
+    /// * `azure_client_id` - Azure client ID
+    /// * `azure_client_secret` - Azure client secret
+    /// * `azure_tenant_id` - Azure tenant ID
+    ///
+    /// # Returns
+    ///
+    /// * An instance of `AzureDataLakeGen2Options`
+    fn new(
+        azure_storage_account_name: String,
+        azure_client_id: String,
+        azure_client_secret: String,
+        azure_tenant_id: String,
+    ) -> Self {
+        AzureDataLakeGen2Options {
+            azure_storage_account_name,
+            azure_client_id,
+            azure_client_secret,
+            azure_tenant_id,
+        }
+    }
+
+    /// Converts the `AzureDataLakeGen2Options` instance to a `HashMap`
+    ///
+    /// # Returns
+    ///
+    /// * A `HashMap` containing the options as key-value pairs
+    fn to_hash_map(&self) -> HashMap<String, String> {
+        let mut map = HashMap::new();
+        map.insert(
+            "azure_storage_account_name".to_string(),
+            self.azure_storage_account_name.clone(),
+        );
+        map.insert("azure_client_id".to_string(), self.azure_client_id.clone());
+        map.insert(
+            "azure_client_secret".to_string(),
+            self.azure_client_secret.clone(),
+        );
+        map.insert("azure_tenant_id".to_string(), self.azure_tenant_id.clone());
+        map
+    }
+}
