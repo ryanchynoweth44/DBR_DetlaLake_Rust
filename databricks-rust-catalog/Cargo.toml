@@ -1,0 +1,24 @@
+[package]
+name = "databricks_rust_catalog"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+dotenv = "0.15.0"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+serde = {version = "1.0.144", features = ["derive"]}
+serde_json = { version = "1.0" }
+log = { version = "0.4.3" }
+env_logger = { version = "0.11.3" }
+deltalake = { version = "0.17.3", features = ["azure", "datafusion"] }
+polars = { version = "0.40.0", features = ["lazy", "parquet", "azure" ] }
+bytes = "1.6.0"
+futures = "0.3.30"
+arrow = "52.0.0"
+
+[lib]
+name = "databricks_rust_catalog"
+path = "src/main.rs" 
+
