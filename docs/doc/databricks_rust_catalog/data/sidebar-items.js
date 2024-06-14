@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["api_client","delta","metastore","permissions"]};
