@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Catalog","CatalogResponse","Client","Schema","SchemaResponse","Table","TableResponse"]};

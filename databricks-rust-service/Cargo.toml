@@ -1,0 +1,16 @@
+[package]
+name = "databricks_rust_service"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+dotenv = "0.15.0"
+tokio = { version = "1", features = ["full"] }
+serde = {version = "1.0.144", features = ["derive"]}
+serde_json = { version = "1.0" }
+log = { version = "0.4.3" }
+env_logger = { version = "0.11.3" }
+axum = { version="0.7.5" }
+magic-crypt="3.1.13"
+axum-extra = { version = "0.9.3", features = ["typed-header"] }

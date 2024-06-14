@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["databricks_rust_catalog"];
