@@ -1,4 +1,4 @@
-use databricks_rust_catalog::data::api_client::APIClient;
+use databricks_rust_catalog::api::api_client::APIClient;
 
 use std::env;
 use dotenv::dotenv;
