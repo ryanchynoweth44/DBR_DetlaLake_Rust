@@ -1,14 +1,23 @@
-# Databricks - Delta Lake - Rust
+# Databricks - Rust - Integration
 
-This repository is purposed for running rust workloads against Databricks Datasets. It will include the collection of data from the Databricks [REST API](https://docs.databricks.com/api/workspace/catalogs/list), reading data directly from storage using the Unity Catalog APIs for metadata, and a UI for exploring datasets. My hope is to integrate Rust and Polars/Spark with Databricks datasets. 
+This repository is designed for running Rust workloads against Databricks datasets. It includes:
 
-NOT FOR PRODUCTION USE!
+- Collection of data from the Databricks [REST API](https://docs.databricks.com/api/workspace/catalogs/list)
+- Reading data directly from storage using the Unity Catalog APIs for metadata
+- A UI for exploring datasets
 
-## Resources: 
+The goal is to integrate Rust and Polars/Spark/Datafusion with Databricks datasets. Here is the high level workflow that occurs behind the scenes after the user authenticates and looks to read data using rust. 
+
+![](./diagram.png)
+
+**Note: This is not for production use!**
+
+## Resources
+
 - [Install and Learn Rust](https://www.rust-lang.org/learn)
-- [Rust Book](https://doc.rust-lang.org/book/)
-- VS Code Extension - [rust-analyzer](https://rust-analyzer.github.io/)
-- Documentation generation: `cargo doc --open --no-deps --target-dir=./docs`
+- [The Rust Programming Language Book](https://doc.rust-lang.org/book/)
+- VS Code Extension: [rust-analyzer](https://rust-analyzer.github.io/)
+- Generate Documentation: `cargo doc --open --no-deps --target-dir=./docs`
 - [Integration Tests](https://doc.rust-lang.org/book/ch11-03-test-organization.html) and [Test Selection](https://doc.rust-lang.org/cargo/commands/cargo-test.html)
-- `cargo run -p databricks_rust_catalog`
-- [Twilio Blog](https://www.twilio.com/en-us/blog/build-high-performance-rest-apis-rust-axum)
+- [Twilio Blog on Building High-Performance REST APIs with Rust and Axum](https://www.twilio.com/en-us/blog/build-high-performance-rest-apis-rust-axum)
+

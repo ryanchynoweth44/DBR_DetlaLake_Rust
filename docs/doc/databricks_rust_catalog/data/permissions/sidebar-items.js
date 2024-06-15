@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["SecurableType"],"fn":["authenticate_user","can_read","can_write","check_permissions","fetch_permissions","get_object_owner"],"struct":["ObjectOwnerResponse","PrivilegeAssignment","PrivilegeAssignmentsResponse","User"]};

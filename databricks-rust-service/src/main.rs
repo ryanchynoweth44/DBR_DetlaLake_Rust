@@ -47,6 +47,7 @@ fn create_router() -> Router {
 
 }
 
+
 async fn get_storage_credentials(TypedHeader(headers): TypedHeader<Authorization<Bearer>> ) -> impl IntoResponse { //Json(payload): Json<AuthPayload>) -> impl IntoResponse {
 
     // validate bearer token is valid
