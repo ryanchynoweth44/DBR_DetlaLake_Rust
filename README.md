@@ -2,9 +2,8 @@
 
 This repository is designed for running Rust workloads against Databricks datasets. It includes:
 
-- Collection of data from the Databricks [REST API](https://docs.databricks.com/api/workspace/catalogs/list)
+- Collection of data from the Databricks [REST API](https://docs.databricks.com/api/workspace/catalogs)
 - Reading data directly from storage using the Unity Catalog APIs for metadata
-- A UI for exploring datasets
 
 The goal is to integrate Rust and Polars/Spark/Datafusion with Databricks datasets. Here is the high level workflow that occurs behind the scenes after the user authenticates and looks to read data using rust. 
 
