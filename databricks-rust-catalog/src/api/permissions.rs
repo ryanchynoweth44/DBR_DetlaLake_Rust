@@ -1,11 +1,8 @@
-use reqwest::{Response, Error};
-use serde::Deserialize;
 use super::api_client::APIClient;
+use reqwest::{Error, Response};
+use serde::Deserialize;
 
-
-
-
-/// Returns User Struct containing the princpal used for authentication. 
+/// Returns User Struct containing the princpal used for authentication.
 ///
 /// # Arguments
 ///
@@ -20,8 +17,11 @@ use super::api_client::APIClient;
 pub async fn authenticate_user(api_client: APIClient, user_name: &str) -> Result<bool, Error> {
     // need to add encryption and verification of user
 
-    // user_token will likely be required in the future as there will be a service token and a user token. 
-    let auth_url: String = format!("https://{}/api/2.0/preview/scim/v2/Me", api_client.workspace_name);
+    // user_token will likely be required in the future as there will be a service token and a user token.
+    let auth_url: String = format!(
+        "https://{}/api/2.0/preview/scim/v2/Me",
+        api_client.workspace_name
+    );
 
     let response: Response = api_client.fetch(&auth_url, None).await?;
     let status: bool = response.status().is_success();
@@ -36,10 +36,8 @@ pub async fn authenticate_user(api_client: APIClient, user_name: &str) -> Result
         log::info!("User {} authentication was successful.", user.user_name);
     }
 
-    
     Ok(status)
 }
-
 
 // /api/2.1/unity-catalog/permissions/{securable_type}/{full_name}
 /// Fetches permissions for a given object from Unity Catalog API.
@@ -58,8 +56,12 @@ pub async fn authenticate_user(api_client: APIClient, user_name: &str) -> Result
 /// # Errors
 ///
 /// Returns an `Error` if the API request fails or if the response cannot be parsed.
-async fn fetch_permissions(api_client: APIClient, securable_type: SecurableType, full_name: &str, principal: &str) -> Result<PrivilegeAssignmentsResponse, Error> {
-
+async fn fetch_permissions(
+    api_client: APIClient,
+    securable_type: SecurableType,
+    full_name: &str,
+    principal: &str,
+) -> Result<PrivilegeAssignmentsResponse, Error> {
     // Determine the string representation of the securable type
     let securable_type_str = securable_type.to_string();
 
@@ -75,7 +77,10 @@ async fn fetch_permissions(api_client: APIClient, securable_type: SecurableType,
 
     // Fetch permissions for catalog
     if !name_parts.get(0).is_none() {
-        let catalog_auth_url: String = format!("https://{}/api/2.1/unity-catalog/permissions/{}/{}?principal={}", api_client.workspace_name, "catalog", catalog_name, principal);
+        let catalog_auth_url: String = format!(
+            "https://{}/api/2.1/unity-catalog/permissions/{}/{}?principal={}",
+            api_client.workspace_name, "catalog", catalog_name, principal
+        );
         log::info!("Getting Catalog Permissions - {}", catalog_auth_url);
         let catalog_response: Response = api_client.fetch(&catalog_auth_url, None).await?;
         let catalog_perms: PrivilegeAssignmentsResponse = catalog_response.json().await?;
@@ -84,7 +89,10 @@ async fn fetch_permissions(api_client: APIClient, securable_type: SecurableType,
 
     // Fetch permissions for schema
     if !name_parts.get(1).is_none() {
-        let schema_auth_url: String = format!("https://{}/api/2.1/unity-catalog/permissions/{}/{}?principal={}", api_client.workspace_name, "schema", schema_name, principal);
+        let schema_auth_url: String = format!(
+            "https://{}/api/2.1/unity-catalog/permissions/{}/{}?principal={}",
+            api_client.workspace_name, "schema", schema_name, principal
+        );
         log::info!("Getting Schema Permissions - '{}'", schema_auth_url);
         let schema_response: Response = api_client.fetch(&schema_auth_url, None).await?;
         let schema_perms: PrivilegeAssignmentsResponse = schema_response.json().await?;
@@ -93,7 +101,10 @@ async fn fetch_permissions(api_client: APIClient, securable_type: SecurableType,
 
     // Fetch permissions for the object itself
     if !name_parts.get(2).is_none() {
-        let obj_auth_url: String = format!("https://{}/api/2.1/unity-catalog/permissions/{}/{}?principal={}", api_client.workspace_name, &securable_type_str, full_name, principal);
+        let obj_auth_url: String = format!(
+            "https://{}/api/2.1/unity-catalog/permissions/{}/{}?principal={}",
+            api_client.workspace_name, &securable_type_str, full_name, principal
+        );
         log::info!("Getting Object Permissions - {}", obj_auth_url);
         let obj_response: Response = api_client.fetch(&obj_auth_url, None).await?;
         let obj_perms: PrivilegeAssignmentsResponse = obj_response.json().await?;
@@ -102,7 +113,6 @@ async fn fetch_permissions(api_client: APIClient, securable_type: SecurableType,
 
     Ok(privileges)
 }
-
 
 /// Fetches the owner of a specified object from Unity Catalog API.
 /// Reference: /api/2.1/unity-catalog/{securable_type}/{full_name}
@@ -119,10 +129,23 @@ async fn fetch_permissions(api_client: APIClient, securable_type: SecurableType,
 /// # Errors
 ///
 /// Returns an `Error` if the API request fails or if the response cannot be parsed.
-async fn get_object_owner(api_client: APIClient, securable_type: SecurableType, full_name: &str) -> Result<ObjectOwnerResponse, Error> {
-    log::info!("Checking ownership on {}: {}", securable_type.to_string(), full_name);
+async fn get_object_owner(
+    api_client: APIClient,
+    securable_type: SecurableType,
+    full_name: &str,
+) -> Result<ObjectOwnerResponse, Error> {
+    log::info!(
+        "Checking ownership on {}: {}",
+        securable_type.to_string(),
+        full_name
+    );
 
-    let url: String = format!("https://{}/api/2.1/unity-catalog/{}s/{}", api_client.workspace_name, securable_type.to_string(), full_name);
+    let url: String = format!(
+        "https://{}/api/2.1/unity-catalog/{}s/{}",
+        api_client.workspace_name,
+        securable_type.to_string(),
+        full_name
+    );
     let response: Response = api_client.fetch(&url, None).await?;
     let status: bool = response.status().is_success();
     let owner_response: ObjectOwnerResponse = response.json().await?;
@@ -133,7 +156,6 @@ async fn get_object_owner(api_client: APIClient, securable_type: SecurableType, 
 
     Ok(owner_response)
 }
-
 
 /// Checks if a principal has the specified permissions on a given object.
 ///
@@ -152,32 +174,65 @@ async fn get_object_owner(api_client: APIClient, securable_type: SecurableType, 
 /// # Errors
 ///
 /// Returns an `Error` if the API request fails or if the response cannot be parsed.
-async fn check_permissions(api_client: APIClient, securable_type: SecurableType, full_name: &str, principal: &str, permissions: Vec<&str>) -> Result<bool, Error> {
+async fn check_permissions(
+    api_client: APIClient,
+    securable_type: SecurableType,
+    full_name: &str,
+    principal: &str,
+    permissions: Vec<&str>,
+) -> Result<bool, Error> {
     let mut perm_check: bool = false; // deny by default
-    let object_permissions: PrivilegeAssignmentsResponse = fetch_permissions(api_client.clone(), securable_type.clone(), full_name, principal).await?;
+    let object_permissions: PrivilegeAssignmentsResponse = fetch_permissions(
+        api_client.clone(),
+        securable_type.clone(),
+        full_name,
+        principal,
+    )
+    .await?;
 
-    // split full name and make 3 different api calls since permissions can be delagated 
+    // split full name and make 3 different api calls since permissions can be delagated
     let name_parts: Vec<&str> = full_name.split('.').collect();
-    let catalog_name = name_parts.get(0).unwrap().trim_matches('"'); // always expect a catalog   - ok_or("Error Getting Catalog")?     
-    let schema_name = match (name_parts.get(0), name_parts.get(1)) { // may not always be a schema
+    let catalog_name = name_parts.get(0).unwrap().trim_matches('"'); // always expect a catalog   - ok_or("Error Getting Catalog")?
+    let schema_name = match (name_parts.get(0), name_parts.get(1)) {
+        // may not always be a schema
         (Some(part1), Some(part2)) => format!("{}.{}", part1, part2),
         _ => "".to_string(), // handle case where parts are missing
     };
 
-    // if they are an owner of the object or one of the parent objects then we return TRUE 
-    if get_object_owner(api_client.clone(), securable_type.clone(), full_name).await?.owner == principal { 
+    // if they are an owner of the object or one of the parent objects then we return TRUE
+    if get_object_owner(api_client.clone(), securable_type.clone(), full_name)
+        .await?
+        .owner
+        == principal
+    {
         log::info!("Princpal {} is an owner of {}. ", principal, full_name);
-        perm_check = true; 
-    } else if !name_parts.get(1).is_none() && get_object_owner(api_client.clone(), SecurableType::Schema, &schema_name).await?.owner == principal { // if princpal is the owner of the schema then return True 
+        perm_check = true;
+    } else if !name_parts.get(1).is_none()
+        && get_object_owner(api_client.clone(), SecurableType::Schema, &schema_name)
+            .await?
+            .owner
+            == principal
+    {
+        // if princpal is the owner of the schema then return True
         log::info!("Princpal {} is an owner of {}. ", principal, schema_name);
         perm_check = true;
-    } else if !name_parts.get(0).is_none() && get_object_owner(api_client.clone(), SecurableType::Catalog, &catalog_name).await?.owner == principal { // if princpal is the owner of the catalog then return True 
+    } else if !name_parts.get(0).is_none()
+        && get_object_owner(api_client.clone(), SecurableType::Catalog, &catalog_name)
+            .await?
+            .owner
+            == principal
+    {
+        // if princpal is the owner of the catalog then return True
         log::info!("Princpal {} is an owner of {}. ", principal, catalog_name);
         perm_check = true;
-    } 
-    // if there are permissions on the object to review 
+    }
+    // if there are permissions on the object to review
     else if let Some(assigns) = object_permissions.privilege_assignments {
-        log::info!("Princpal {} not an owner of {} or any parent object. ", principal, full_name);
+        log::info!(
+            "Princpal {} not an owner of {} or any parent object. ",
+            principal,
+            full_name
+        );
         for s in assigns {
             // we do not need to verify principal as we only get permissions for that principal
             // but do want to log the princpal we are mapping the current user to i.e. if they are part of a group
@@ -186,7 +241,12 @@ async fn check_permissions(api_client: APIClient, securable_type: SecurableType,
                     for value in pp {
                         // if the value is in the read_list vec then return TRUE
                         if permissions.contains(&value.as_str()) {
-                            log::info!("Principal {} has {} permissions on {}.", p, value, s.object_name);
+                            log::info!(
+                                "Principal {} has {} permissions on {}.",
+                                p,
+                                value,
+                                s.object_name
+                            );
                             perm_check = true;
                         }
                     }
@@ -212,24 +272,41 @@ async fn check_permissions(api_client: APIClient, securable_type: SecurableType,
 /// # Errors
 ///
 /// Returns an `Error` if the API request fails or if the response cannot be parsed.
-pub async fn can_read(api_client: APIClient, full_name: &str, principal: &str) -> Result<bool, Error> {
+pub async fn can_read(
+    api_client: APIClient,
+    full_name: &str,
+    principal: &str,
+) -> Result<bool, Error> {
     let readable_permissions = vec!["SELECT", "ALL_PRIVILEGES"];
     let securable_type: SecurableType = SecurableType::Table;
 
-    // split full name and make 3 different api calls since permissions can be delagated 
+    // split full name and make 3 different api calls since permissions can be delagated
     let name_parts: Vec<&str> = full_name.split('.').collect();
-    let catalog_name = name_parts.get(0).unwrap().trim_matches('"'); // always expect a catalog        
-    let schema_name = match (name_parts.get(0), name_parts.get(1)) { // may not always be a schema
+    let catalog_name = name_parts.get(0).unwrap().trim_matches('"'); // always expect a catalog
+    let schema_name = match (name_parts.get(0), name_parts.get(1)) {
+        // may not always be a schema
         (Some(part1), Some(part2)) => format!("{}.{}", part1, part2),
         _ => "".to_string(), // handle case where parts are missing
     };
-    log::info!("Checking if {} can read the following objects: {} | {} | {}", principal, catalog_name, schema_name, full_name);
+    log::info!(
+        "Checking if {} can read the following objects: {} | {} | {}",
+        principal,
+        catalog_name,
+        schema_name,
+        full_name
+    );
 
-    let readable: bool = check_permissions(api_client, securable_type, full_name, principal, readable_permissions).await?; // deny by default
+    let readable: bool = check_permissions(
+        api_client,
+        securable_type,
+        full_name,
+        principal,
+        readable_permissions,
+    )
+    .await?; // deny by default
 
     Ok(readable)
 }
-
 
 /// Checks if a principal can modify a given object from Unity Catalog API.
 ///
@@ -247,32 +324,46 @@ pub async fn can_read(api_client: APIClient, full_name: &str, principal: &str) -
 ///
 /// Returns an `Error` if the API request fails or if the response cannot be parsed.
 
-pub async fn can_write(api_client: APIClient, full_name: &str, principal: &str) -> Result<bool, Error> {
+pub async fn can_write(
+    api_client: APIClient,
+    full_name: &str,
+    principal: &str,
+) -> Result<bool, Error> {
     let writable_permissions: Vec<&str> = vec!["MODIFY", "ALL_PRIVILEGES"];
     let securable_type: SecurableType = SecurableType::Table;
 
-
-    // split full name and make 3 different api calls since permissions can be delagated 
+    // split full name and make 3 different api calls since permissions can be delagated
     let name_parts: Vec<&str> = full_name.split('.').collect();
-    let catalog_name = name_parts.get(0).unwrap().trim_matches('"'); // always expect a catalog        
-    let schema_name = match (name_parts.get(0), name_parts.get(1)) { // may not always be a schema
+    let catalog_name = name_parts.get(0).unwrap().trim_matches('"'); // always expect a catalog
+    let schema_name = match (name_parts.get(0), name_parts.get(1)) {
+        // may not always be a schema
         (Some(part1), Some(part2)) => format!("{}.{}", part1, part2),
         _ => "".to_string(), // handle case where parts are missing
     };
-    log::info!("Checking if {} can read the following objects: {} | {} | {}", principal, catalog_name, schema_name, full_name);
+    log::info!(
+        "Checking if {} can read the following objects: {} | {} | {}",
+        principal,
+        catalog_name,
+        schema_name,
+        full_name
+    );
 
-    let writable: bool = check_permissions(api_client, securable_type, full_name, principal, writable_permissions).await?; // deny by default
+    let writable: bool = check_permissions(
+        api_client,
+        securable_type,
+        full_name,
+        principal,
+        writable_permissions,
+    )
+    .await?; // deny by default
 
     Ok(writable)
 }
 
-
-
-// wrapper struct to hold all permissions on an object 
+// wrapper struct to hold all permissions on an object
 #[derive(Debug, Deserialize, Clone)]
 pub struct PrivilegeAssignmentsResponse {
     pub privilege_assignments: Option<Vec<PrivilegeAssignment>>,
-
 }
 impl PrivilegeAssignmentsResponse {
     // Constructor to create an empty PrivilegeAssignmentsResponse
@@ -284,7 +375,12 @@ impl PrivilegeAssignmentsResponse {
 
     // Method to extend privilege_assignments vector
     // object type needs to be "securable type"
-    pub fn add_assignment(&mut self, privilege_assignments: PrivilegeAssignmentsResponse, object_name: &str, object_type: SecurableType) {
+    pub fn add_assignment(
+        &mut self,
+        privilege_assignments: PrivilegeAssignmentsResponse,
+        object_name: &str,
+        object_type: SecurableType,
+    ) {
         if let Some(ref mut self_privs) = self.privilege_assignments {
             if let Some(mut privs) = privilege_assignments.privilege_assignments {
                 for assignment in &mut privs {
@@ -297,19 +393,14 @@ impl PrivilegeAssignmentsResponse {
     }
 }
 
-
-
-// struct to old ownership information 
+// struct to old ownership information
 #[derive(Debug, Deserialize, Clone)]
 pub struct ObjectOwnerResponse {
     pub full_name: String,
     pub owner: String,
 }
 
-
-
-
-// Struct to represent the privilege assignment objects in UC. 
+// Struct to represent the privilege assignment objects in UC.
 #[derive(Debug, Deserialize, Clone)]
 pub struct PrivilegeAssignment {
     #[serde(skip)]
@@ -319,34 +410,31 @@ pub struct PrivilegeAssignment {
     pub privileges: Option<Vec<String>>,
 }
 
-
-
-// A struct to represent the user object returned by the authentication endpoint 
+// A struct to represent the user object returned by the authentication endpoint
 #[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: String,
-    pub user_name: String, 
+    pub user_name: String,
     pub display_name: String,
     pub active: bool,
 }
 
-
-
 /// Enum representing various Unity Catalog (UC) securable objects
 /// Refer to: https://docs.databricks.com/en/data-governance/unity-catalog/manage-privileges/privileges.html
-#[derive(Debug, Deserialize, Clone)]pub enum SecurableType {
-    Catalog, // metastore ownership
-    Schema, // catalog ownership
-    Table, // schema ownership
+#[derive(Debug, Deserialize, Clone)]
+pub enum SecurableType {
+    Catalog,           // metastore ownership
+    Schema,            // catalog ownership
+    Table,             // schema ownership
     StorageCredential, // metastore ownership
-    ExternalLocation, // metastore ownership 
-    Function, // schema ownership 
-    Share, // metastore ownership
-    Provider, // metastore ownership
-    Recipient, // metastore ownership
+    ExternalLocation,  // metastore ownership
+    Function,          // schema ownership
+    Share,             // metastore ownership
+    Provider,          // metastore ownership
+    Recipient,         // metastore ownership
     Metastore, // account ownership - we can likely disregard as we are only working with single metastores
-    Volume, // schema ownership 
+    Volume,    // schema ownership
     Connection, // federation - metastore ownership
 }
 impl std::str::FromStr for SecurableType {
@@ -390,4 +478,3 @@ impl ToString for SecurableType {
         }
     }
 }
-

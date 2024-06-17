@@ -2,20 +2,18 @@ use super::api_client::APIClient;
 use reqwest::{Error, Response};
 use serde::Deserialize;
 
-
 #[derive(Clone)]
 pub struct Client {
     api_client: APIClient,
 }
 
 impl Client {
-
-    /// Creates metastore client struct 
+    /// Creates metastore client struct
     ///
     /// # Arguments
     ///
     /// * `workspace_name` - The Databricks workspace name containing the metastore access i.e. 'adb-12345678912345.11.azuredatabricks.net'
-    /// * `db_token` - The user token to authenticate against Databricks Unity Catalog. 
+    /// * `db_token` - The user token to authenticate against Databricks Unity Catalog.
     ///
     /// # Examples
     ///
@@ -23,19 +21,21 @@ impl Client {
     ///  let metastore_client: Client = Client::new(workspace_name.clone(), db_token.clone());
     /// ```    
     pub fn new(workspace_name: String, db_token: String) -> Self {
-        let api_client: APIClient = APIClient{
+        let api_client: APIClient = APIClient {
             db_token: db_token,
-            workspace_name: workspace_name
+            workspace_name: workspace_name,
         };
-        
-        let perms: Client = Client { api_client: api_client };
+
+        let perms: Client = Client {
+            api_client: api_client,
+        };
 
         perms
     }
 
     /// List all catalogs in a Databricks' Unity Catalog Metastore
     /// - https://docs.databricks.com/api/workspace/catalogs/list
-    /// 
+    ///
     /// # Examples
     ///
     /// ```ignore
@@ -64,7 +64,7 @@ impl Client {
 
     /// List schemas fpr a given catalog in a Databricks' Unity Catalog Metastore
     /// - https://docs.databricks.com/api/workspace/schemas/list
-    /// 
+    ///
     /// # Examples
     ///
     /// ```ignore
@@ -101,7 +101,7 @@ impl Client {
 
     /// List all tables for a given schema/catalog in a Databricks' Unity Catalog Metastore
     /// - https://docs.databricks.com/api/workspace/tables/list
-    /// 
+    ///
     /// # Examples
     ///
     /// ```ignore
@@ -140,7 +140,7 @@ impl Client {
 
     /// Get an individual table object
     /// https://docs.databricks.com/api/workspace/tables/get
-    /// 
+    ///
     /// # Examples
     ///
     /// ```ignore
@@ -160,7 +160,7 @@ impl Client {
 
     /// Get an individual schema object
     // https://docs.databricks.com/api/workspace/schemas/get
-    /// 
+    ///
     /// # Examples
     ///
     /// ```ignore
@@ -180,7 +180,7 @@ impl Client {
 
     /// Get an individual catalog object
     /// - https://docs.databricks.com/api/workspace/schemas/get
-    /// 
+    ///
     /// # Examples
     ///
     /// ```ignore
@@ -197,8 +197,6 @@ impl Client {
 
         Ok(catalog)
     }
-
-
 }
 
 // wrapper struct to contain a vector of catalogs
@@ -257,11 +255,13 @@ impl SchemaResponse {
     /// # Returns
     /// A new `SchemaResponse` instance with the provided schemas.
     pub fn new(schemas: Vec<Schema>) -> Self {
-        SchemaResponse { schemas: Some(schemas) }
+        SchemaResponse {
+            schemas: Some(schemas),
+        }
     }
 }
 
-// represents a schema object in unity catalog 
+// represents a schema object in unity catalog
 #[derive(Debug, Deserialize, Clone)]
 pub struct Schema {
     pub name: String,
@@ -295,7 +295,9 @@ impl TableResponse {
     /// # Returns
     /// A new `TableResponse` instance with the provided tables.
     pub fn new(tables: Vec<Table>) -> Self {
-        TableResponse { tables: Some(tables) }
+        TableResponse {
+            tables: Some(tables),
+        }
     }
 }
 

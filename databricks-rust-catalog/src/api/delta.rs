@@ -1,4 +1,3 @@
-
 use super::api_client::APIClient;
 use super::metastore::*;
 use super::permissions;
@@ -13,15 +12,15 @@ use reqwest::Response;
 
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::env;
 use std::error::Error;
 use std::io::Cursor;
 use std::sync::Arc;
-use std::env;
 
 use bytes::Bytes;
 use futures;
-use serde::Deserialize;
 use magic_crypt::new_magic_crypt;
+use serde::Deserialize;
 
 pub struct DeltaLakeManager {
     storage_credentials: AzureDataLakeGen2Options,
@@ -58,9 +57,13 @@ impl DeltaLakeManager {
         let storage_port: String = env::var("STORAGE_PORT").expect("STORAGE_PORT not set");
         let bearer_token = "test";
         let storage_client = api_client.clone();
-        let storage_response: Response = storage_client.fetch(&format!("{}:{}/api/storage_credentials", &storage_url, &storage_port), Some(&bearer_token)).await?;
+        let storage_response: Response = storage_client
+            .fetch(
+                &format!("{}:{}/api/storage_credentials", &storage_url, &storage_port),
+                Some(&bearer_token),
+            )
+            .await?;
         let storage_json: AzureDataLakeGen2Options = storage_response.json().await?;
-
 
         let storage_credentials: AzureDataLakeGen2Options = AzureDataLakeGen2Options::new(
             decrypt_strings(&storage_json.azure_storage_account_name, &bearer_token),
@@ -69,7 +72,8 @@ impl DeltaLakeManager {
             decrypt_strings(&storage_json.azure_tenant_id, &bearer_token),
         );
 
-        let _authorized: bool = permissions::authenticate_user(api_client.clone(),&principal).await?;
+        let _authorized: bool =
+            permissions::authenticate_user(api_client.clone(), &principal).await?;
 
         let metastore_client: Client = Client::new(workspace_name.clone(), db_token.clone());
 
@@ -84,12 +88,11 @@ impl DeltaLakeManager {
         register_handlers(None);
 
         if _authorized {
-            return Ok(reader)
+            return Ok(reader);
         } else {
             return Err(Box::<dyn Error>::from("Authorization Failed."));
         }
     }
-
 
     /// If the user has permission to read the table, then this function returns a datafusion dataframe.
     ///
@@ -286,7 +289,6 @@ impl DeltaLakeManager {
         Ok(df)
     }
 
-
     pub async fn write_polars_to_delta_table(
         &self,
         table_name: &str,
@@ -335,7 +337,8 @@ impl DeltaLakeManager {
                     .storage_location
                     .ok_or("Table Location Not Found.")?,
                 self.storage_credentials.to_hash_map(),
-            ).await?;
+            )
+            .await?;
 
             // let record_batches = df.collect().await?;
             // // get json rows
@@ -439,12 +442,10 @@ impl AzureDataLakeGen2Options {
         map.insert("azure_tenant_id".to_string(), self.azure_tenant_id.clone());
         map
     }
-
 }
 
 fn decrypt_strings(string_value: &str, key: &str) -> String {
     let mc = new_magic_crypt!(key, 256);
     let decrypted_string = mc.decrypt_base64_to_string(string_value).unwrap();
     decrypted_string
-
 }
