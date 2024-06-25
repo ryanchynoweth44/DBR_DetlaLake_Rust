@@ -200,6 +200,7 @@ async fn check_permissions(
     };
 
     // if they are an owner of the object or one of the parent objects then we return TRUE
+    // start with the object and go higher b/c its more likely users are owners of tables than catalogs
     if get_object_owner(api_client.clone(), securable_type.clone(), full_name)
         .await?
         .owner

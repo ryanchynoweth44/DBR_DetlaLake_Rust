@@ -20,3 +20,5 @@ The goal is to integrate Rust and Polars/Spark/Datafusion with Databricks datase
 - [Integration Tests](https://doc.rust-lang.org/book/ch11-03-test-organization.html) and [Test Selection](https://doc.rust-lang.org/cargo/commands/cargo-test.html)
 - [Twilio Blog on Building High-Performance REST APIs with Rust and Axum](https://www.twilio.com/en-us/blog/build-high-performance-rest-apis-rust-axum)
 
+## TO DO: 
+- Move the storage credentials to the web server and generate SAS tokens for parquet access on reads
